@@ -1,0 +1,135 @@
+# Tesla IPTV
+
+iPTV / live-TV web app for the Tesla built-in browser. Load any **M3U / M3U8**
+playlist (or Xtream Codes `get.php` live URL), browse channels, and play HLS
+streams — with an in-motion rendering mode that keeps video visible while the
+car is driving.
+
+## Use it in the car
+
+**One-time wiring (no typing in the car):**
+
+1. On your **phone**, open **https://keylimesoda.github.io/tesla-iptv/** and
+   tap the gear ⚙.
+2. Paste your **M3U/M3U8 playlist URL** → **Generate wiring link** → **Copy**.
+   - Xtream Codes accounts use the live playlist URL:
+     `http://<host>/get.php?username=<u>&password=<p>&type=m3u_plus`
+3. In the car's browser, open that wiring link **once** (you can add it to
+   the browser's home shortcuts). The playlist is saved to the car's browser
+   storage — every later launch loads it directly.
+
+**In the car day-to-day:** open the app, tap a channel to play.
+**"Canvas in-motion"** is on by default — that's the driving mode. Volume via
+steering-wheel scroll wheel or on-screen button.
+
+> **Passenger use only.** The driver must not watch or operate this while
+> driving. In-motion front-screen video defeats Tesla's in-motion video
+> suppression; that is a safety/regulatory gray area (see below). You are
+> responsible for how you use this.
+
+## How in-motion video works
+
+Tesla's infotainment browser suppresses the visual output of HTML5
+`<video>` elements while the vehicle is in motion (audio keeps playing).
+This app exploits the fact that the suppression does **not** apply to
+`<canvas>`:
+
+- The stream plays in a `<video>` element that is pushed off-screen
+  (audio + decoding continue normally).
+- Every animation frame, the current video frame is copied onto a visible
+  `<canvas>` with `drawImage()`.
+- Because the visible surface is a canvas — not a video element — it is not
+  suppressed while driving.
+
+Toggle off "Canvas in-motion" for normal rendering (parked use).
+
+## Default channel list
+
+The app ships with a bundled default playlist (`public/channels.m3u`) of
+**free-to-air / public** channels that are verified to work in the browser.
+"Known good" means **CORS + HLS + a live segment**: hls.js fetches segments
+cross-origin, so a channel only plays if its CDN sends
+`Access-Control-Allow-Origin: *`. Open the app and they're there — no setup.
+Override with your own M3U any time via the gear ⚙ → Playlist.
+
+Channels drift (streams die, move, drop CORS), so the list is maintained by a
+reproducible pipeline in `scripts/`:
+
+```sh
+python3 scripts/curate.py           # re-fetch sources, re-gate, rewrite channels.m3u
+python3 scripts/curate.py --check   # spot-check the current list (exit 1 if any dead)
+```
+
+`scripts/curate.py` pulls the legal/public source M3Us listed in
+`scripts/sources.txt`, drops anything that fails the CORS/HLS/segment gate, and
+rewrites `public/channels.m3u` (sports-first, with logos where available).
+Add or edit sources in `sources.txt` and re-run to grow the list.
+
+## Browser viewport (verified, firmware 2026.26+)
+
+The 2026.26 summer update changed the browser's pixel density from dpr 1.0 to
+~1.53, and the browser window is **not full-screen while driving**. Measured
+values (2024 Model Y / 2023 Model S, Chromium 148):
+
+| State | CSS viewport | dpr | Physical |
+|---|---|---|---|
+| Parked (MY 2026+ Juniper, 16" 2560×1440) | ≈1306×735 | 1.96 | 2560×1440 (184 PPI) |
+| In motion (MY 2026+ Juniper) | **804×638** | 1.96 | ≈1576×1250 |
+| Parked (M3/Y 2020-25, 15.4" 1920×1200) | 1254×784 | 1.53 | 1920×1200 (147 PPI) |
+| In motion (M3/Y 2020-25) | ~773×601 | 1.53 | ~1183×920 |
+| Parked (S/X 2021+, 17" 2200×1300) | ~1410×833 | 1.56 | 2200×1300 (150 PPI) |
+
+Notes for building for the car:
+
+- Design for **804×638 CSS while driving** on the Juniper MY (measured in-car,
+  dpr 1.96, Chrome 148; parked ≈1306×735); older M3/Y: 773×601 @ dpr 1.53.
+- `pointer: fine` / `hover: hover` are now reported (touch detection via media
+  queries is unreliable); `maxTouchPoints` is still 16.
+- `prefers-color-scheme` reports light; this app pins a dark theme.
+- Pre-update firmware reports the raw panel as CSS (1920×1200 @ dpr 1.0).
+- The canvas backing store is capped at 2× device pixels.
+
+Sources: cliamp-web in-car measurement (2026 MY Performance: 804×638 CSS @ dpr
+1.96, Chrome 148), Tesla Motors Club measurement thread (dpr 1.0 → 1.53,
+in-motion 773×601 window on 1920×1200 cars), Not a Tesla App screen comparison
+(panel sizes/resolutions), codriver.io summer-2026 guide (Chromium 148,
+pointer/hover flip).
+
+## Limitations
+
+- **Non-DRM HLS only.** Streams protected by Widevine/FairPlay (Netflix, most
+  premium league feeds, some pay-TV channels) will **not** play.
+- **CORS.** The playlist URL and its segments must send
+  `Access-Control-Allow-Origin` headers. Many IPTV providers do; if your feed
+  doesn't, playback will fail in the status line — you'd need a proxy.
+- **Connectivity.** Uses the car's Premium Connectivity / Wi-Fi / hotspot.
+  Live video is data-heavy; Tesla data caps may apply.
+- **Chromium.** Runs on all modern Teslas (the canvas path predates
+  WebCodecs, so even older cars work).
+- **Safety/legal (US):** NHTSA has scrutinized in-vehicle in-motion
+  entertainment ("Passenger Play", investigation PE21-023, closed 2023).
+  Watching moving video visible to the driver while in motion is a
+  distracted-driving violation in most states. This app is for passengers.
+
+## Development
+
+```sh
+npm install
+npm run dev      # dev server at http://localhost:5173/tesla-iptv/
+npm run build    # production build into dist/ (base=/tesla-iptv/)
+```
+
+Stack: Vite + TypeScript + hls.js. No framework.
+
+### Re-deploy to GitHub Pages
+
+```sh
+npm run build
+git worktree add ../tesla-iptv-ghpages gh-pages 2>/dev/null || git worktree add --checkout ../tesla-iptv-ghpages -b gh-pages
+rsync -a --delete dist/ ../tesla-iptv-ghpages/
+git -C ../tesla-iptv-ghpages commit -am "deploy"
+git -C ../tesla-iptv-ghpages push origin gh-pages
+git worktree remove ../tesla-iptv-ghpages --force
+```
+
+GitHub Pages is configured to serve the `gh-pages` branch at the repo root.
