@@ -41,12 +41,113 @@ function decodeSlice(base64, start, end) {
     c.charCodeAt(0),
   );
 }
+
+async function handleStremio(request) {
+  if (request.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { "Content-Type": "application/json", ...security },
+    });
+  }
+  const url = new URL(request.url);
+  const action = url.searchParams.get("action");
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {}
+
+  if (action === "login") {
+    const { email, password } = body;
+    if (!email || !password) {
+      return Response.json({ error: "Email and password are required." }, { status: 400, headers: security });
+    }
+    const res = await fetch("https://api.strem.io/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      return Response.json({ error: data.error.message || "Failed to log in to Stremio." }, { status: 401, headers: security });
+    }
+    const user = data.result?.user;
+    const authKey = data.result?.auth?.key;
+    return Response.json({
+      success: true,
+      user: { id: user?._id || "", email: user?.email || email },
+      authKey,
+    }, { headers: security });
+  }
+
+  if (action === "addons") {
+    const res = await fetch("https://api.strem.io/api/addonCollectionGet", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "AddonCollectionGet", authKey: body.authKey }),
+    });
+    const data = await res.json();
+    return Response.json({ addons: data.result?.addons || [] }, { headers: security });
+  }
+
+  if (action === "library") {
+    if (!body.authKey) {
+      return Response.json({ error: "Auth key required for library." }, { status: 401, headers: security });
+    }
+    const res = await fetch("https://api.strem.io/api/datastoreGet", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ authKey: body.authKey, collection: "library", all: true }),
+    });
+    const data = await res.json();
+    const raw = Array.isArray(data.result) ? data.result : data.result?.items || [];
+    const items = raw.filter((i) => !i.removed).map((i) => ({
+      id: i._id || i.id,
+      name: i.name || "Untitled",
+      type: i.type || "movie",
+      poster: i.poster || "",
+      year: i.year || "",
+      progress: i.state?.timeOffset || 0,
+      duration: i.state?.duration || 0,
+    }));
+    return Response.json({ items }, { headers: security });
+  }
+
+  if (action === "streams") {
+    const { addons, type, id } = body;
+    const addonList = Array.isArray(addons) && addons.length > 0 ? addons : ["https://v3-cinemeta.strem.io/manifest.json"];
+    const streamPromises = addonList.map(async (transportUrl) => {
+      try {
+        const base = transportUrl.replace(/\/manifest\.json$/, "");
+        const streamUrl = `${base}/stream/${encodeURIComponent(type)}/${encodeURIComponent(id)}.json`;
+        const r = await fetch(streamUrl, { headers: { "User-Agent": "Volta-Tesla/1.0" }, signal: AbortSignal.timeout(8000) });
+        if (!r.ok) return [];
+        const d = await r.json();
+        return (d.streams || []).map((s) => ({
+          name: s.name || "Stream",
+          title: s.title || s.name || "Playback Source",
+          url: s.url,
+          ytId: s.ytId,
+          behaviorHints: s.behaviorHints,
+        }));
+      } catch {
+        return [];
+      }
+    });
+    const streamArrays = await Promise.all(streamPromises);
+    return Response.json({ streams: streamArrays.flat() }, { headers: security });
+  }
+
+  return Response.json({ error: "Unknown action" }, { status: 404, headers: security });
+}
+
 export function createWorker(assets) {
   return {
     async fetch(request, env = {}) {
       const url = new URL(request.url);
       if (url.pathname.startsWith("/api/connections/"))
         return connections(request, env);
+      if (url.pathname === "/api/stremio")
+        return handleStremio(request);
       if (url.pathname === "/api/youtube") return search(request, env);
       if (url.pathname === "/api/status")
         return Response.json(

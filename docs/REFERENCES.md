@@ -26,3 +26,23 @@ The launcher now uses the actual Tesla Model 3 GLB by David_Holiday, CC BY 4.0. 
 - Stremio core protocol types: https://github.com/Stremio/stremio-core/blob/development/src/types/api/request.rs and https://github.com/Stremio/stremio-core/blob/development/src/types/api/response.rs
 
 The Stremio library/device-link adapters are original HTTP protocol implementations based on these public interface definitions, not imports of GPL source. Device-link creation was verified against the official server (HTTP 200); an authenticated library fetch still requires the user's approval.
+
+
+## Revision 3 — Front-Seat Driving Bypass & Dedicated YouTube / Stremio / IPTV Suites
+
+1. **In-Motion Canvas Bypass (Tesla Driving Mode)**:
+   - Utilizes the proven technique documented in `keylimesoda/tesla-iptv` and `AgnusSOCO/tesla-video-player`: Tesla's Chromium-based infotainment browser suppresses visual presentation of standard HTML5 `<video>` tags when the vehicle shifts out of Park into Drive, but does **not** suppress rendering to `<canvas>`.
+   - The media stream is loaded into an off-screen `<video>` element (audio decoding and media synchronization continue uninterrupted).
+   - High-performance real-time frame transfer is executed via `requestVideoFrameCallback` (supported in modern Chromium / Tesla MCU3 and MCU2) with fallback to `requestAnimationFrame`.
+   - Canvas resolution dynamically scales with `devicePixelRatio` (capped at 2x) to render crisp frames across Tesla displays (15.4" 1920×1200, 16" 2560×1440, and in-motion 804×638 / 773×601 window).
+   - Both `contain` (letterboxed aspect ratio) and `cover` (fill-screen) presentation modes are supported with large touch controls.
+
+2. **Native Stremio Account Login & Web UI**:
+   - Integrated direct Stremio account authentication via `https://api.strem.io/api/login` (email/password) as well as direct AuthKey entry.
+   - Synchronizes user's installed addons (`api/addonCollectionGet`) and user's cloud library (`api/datastoreGet`).
+   - Authentic Stremio Web UI with Trending, Movies, Series, and Library tabs, IMDb rating chips, cinematic backdrops, and TV series season/episode selectors.
+   - Resolves stream sources from user's addons and pipes playback directly into the in-motion canvas player.
+
+3. **Authentic YouTube & Live IPTV**:
+   - YouTube interface featuring clean video cards, category pills, keyword search, and direct YouTube video link paste support.
+   - Live IPTV module pre-loaded with verified free-to-air HLS feeds (Sky News, Red Bull TV, NASA TV, Euronews, France 24, Bloomberg, Al Jazeera) and custom M3U / Xtream Codes URL / file importer.

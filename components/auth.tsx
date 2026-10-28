@@ -1,233 +1,258 @@
 "use client";
+
 import { useState } from "react";
 import { vehicles, displays, Vehicle, Display } from "@/lib/vehicle";
-import { readLocal, writeLocal } from "@/lib/storage";
-import { X, ArrowRight, Mail, ShieldCheck } from "lucide-react";
-import { configured, supabase } from "@/lib/supabase";
+import { X, ArrowRight, ShieldCheck, KeyRound, Crown } from "lucide-react";
+import {
+  MASTER_ADMIN_EMAIL,
+  isMasterAdmin,
+  registerAccount,
+  authenticateAccount,
+  UserAccount,
+} from "@/lib/accounts";
+
 export default function Auth({
   close,
   onSignedIn,
 }: {
   close: () => void;
-  onSignedIn: () => void;
+  onSignedIn: (account: UserAccount) => void;
 }) {
-  const [vehicle, setVehicle] = useState<Vehicle>("Tesla Model 3"),
-    [display, setDisplay] = useState<Display>("Center display (parked)"),
-    [mode, setMode] = useState<"signin" | "signup" | "reset" | "update">(
-      "signin",
-    ),
-    [name, setName] = useState(""),
-    [email, setEmail] = useState(""),
-    [password, setPassword] = useState(""),
-    [message, setMessage] = useState(""),
-    [busy, setBusy] = useState(false);
+  const [vehicle, setVehicle] = useState<Vehicle>("Tesla Model 3");
+  const [display, setDisplay] = useState<Display>("Center display (parked)");
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
+  const [message, setMessage] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const isAdminEmail = isMasterAdmin(email);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setMessage("");
+    setSuccessMsg("");
+
     try {
-      const client = supabase();
-      if (mode === "reset") {
-        const { error } = await client.auth.resetPasswordForEmail(email, {
-          redirectTo: `${location.origin}/auth/callback`,
-        });
-        if (error) throw error;
-        setMessage("If this email has an account, a reset link is on its way.");
-      } else if (mode === "update") {
-        const { error } = await client.auth.updateUser({ password });
-        if (error) throw error;
-        setMessage("Password updated.");
-      } else if (mode === "signup") {
-        const { error } = await client.auth.signUp({
+      if (mode === "signup") {
+        const res = registerAccount({
           email,
           password,
-          options: {
-            data: {
-              name,
-              vehicle,
-              display,
-              paint: readLocal("volta.paint", 0),
-            },
-            emailRedirectTo: `${location.origin}/auth/callback`,
-          },
+          name: name.trim() || (isAdminEmail ? "Owner" : "Passenger"),
+          vehicle,
+          display,
+          inviteCode: isAdminEmail ? undefined : inviteCode,
         });
-        if (error) throw error;
-        writeLocal("volta.vehicle", { vehicle, display });
-        setMessage("Check your inbox to confirm your account.");
+
+        if (!res.success) {
+          setMessage(res.error || "Failed to create account.");
+          setBusy(false);
+          return;
+        }
+
+        setSuccessMsg(
+          isAdminEmail
+            ? "Welcome, Owner! Secret Menu and all vehicle features unlocked."
+            : "Account created successfully! Welcome aboard Volta.",
+        );
+
+        setTimeout(() => {
+          if (res.account) onSignedIn(res.account);
+          close();
+        }, 1200);
       } else {
-        const { error } = await client.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-        onSignedIn();
-        close();
+        const res = authenticateAccount(email, password);
+        if (!res.success) {
+          setMessage(res.error || "Invalid email or password.");
+          setBusy(false);
+          return;
+        }
+
+        setSuccessMsg(`Welcome back, ${res.account?.name || email}!`);
+        setTimeout(() => {
+          if (res.account) onSignedIn(res.account);
+          close();
+        }, 1000);
       }
-    } catch (e) {
-      setMessage(
-        e instanceof Error ? e.message : "Unable to connect. Please try again.",
-      );
+    } catch {
+      setMessage("Authentication error. Please try again.");
     } finally {
       setBusy(false);
     }
   }
+
   return (
-    <div className="modal-backdrop">
+    <div className="detail-modal-overlay" onClick={close}>
       <section
-        className="modal auth-modal"
+        className="auth-modal-box"
         role="dialog"
         aria-modal="true"
-        aria-label="Account"
+        aria-label="Account Authentication"
+        onClick={(e) => e.stopPropagation()}
       >
         <button
-          className="icon-button modal-close"
+          className="close-modal-btn"
           onClick={close}
           aria-label="Close"
         >
-          <X />
+          <X size={20} />
         </button>
+
         <div className="auth-symbol">
-          <ShieldCheck size={32} />
+          {isAdminEmail ? (
+            <div className="owner-crown-icon">
+              <Crown size={32} />
+            </div>
+          ) : (
+            <ShieldCheck size={32} />
+          )}
         </div>
-        <span className="eyebrow">YOUR WORLD, CONNECTED</span>
+
+        <span className="eyebrow">
+          {isAdminEmail ? "OWNER ACCESS" : "VOLTA PASSENGER ACCESS · INVITE ONLY"}
+        </span>
         <h2>
           {mode === "signup"
-            ? "Make yourself at home."
-            : mode === "reset"
-              ? "A fresh start."
-              : mode === "update"
-                ? "Choose a new password."
-                : "Welcome back."}
+            ? isAdminEmail
+              ? "Claim Owner Account"
+              : "Passenger Registration"
+            : "Sign In to Volta"}
         </h2>
-        <p>Keep your favorites, profiles and next episodes together.</p>
-        {!configured && (
-          <div className="notice">
-            You’re in guest mode. Account sync needs Supabase configuration;
-            everything you save stays on this device.
-          </div>
-        )}
-        <form onSubmit={submit}>
+        <p>
+          {isAdminEmail
+            ? `Welcome ${MASTER_ADMIN_EMAIL}. You have full access and invite generation privileges.`
+            : mode === "signup"
+              ? "Access requires an active passenger invite code issued by the vehicle owner."
+              : "Enter your registered credentials to access your synced library."}
+        </p>
+
+        {message && <div className="login-error-alert">{message}</div>}
+        {successMsg && <div className="login-success-alert">{successMsg}</div>}
+
+        <form onSubmit={submit} className="auth-form">
           {mode === "signup" && (
-            <label>
-              Your name
+            <div className="form-group">
+              <label>Your Name</label>
               <input
                 required
                 maxLength={24}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoComplete="given-name"
-                placeholder="Your first name"
+                placeholder={isAdminEmail ? "Tesla Owner" : "First name"}
               />
-            </label>
+            </div>
           )}
-          {mode !== "update" && (
-            <label>
-              Email address
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="you@example.com"
-                autoComplete="email"
-              />
-            </label>
-          )}
-          {mode !== "reset" && (
-            <label>
-              Password
-              <input
-                type="password"
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete={
-                  mode === "signin" ? "current-password" : "new-password"
-                }
-                placeholder="At least 8 characters"
-              />
-            </label>
-          )}
+
+          <div className="form-group">
+            <label>Email Address</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="you@example.com"
+              autoComplete="email"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Password</label>
+            <input
+              type="password"
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete={mode === "signin" ? "current-password" : "new-password"}
+              placeholder="At least 6 characters"
+            />
+          </div>
+
           {mode === "signup" && (
             <>
-              <label>
-                Your vehicle
+              {isAdminEmail ? (
+                <div className="owner-bypass-pill">
+                  <Crown size={14} />
+                  <span>Owner Account Recognized — No Invite Code Required</span>
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label className="invite-label">
+                    <KeyRound size={14} />
+                    <span>Invite Code (Required)</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value)}
+                    placeholder="e.g. VOLTA-VIP-2026"
+                    className="invite-code-input"
+                  />
+                  <small className="field-hint">
+                    Need a code? Ask the vehicle owner ({MASTER_ADMIN_EMAIL}) for a passenger pass.
+                  </small>
+                </div>
+              )}
+
+              <div className="form-group">
+                <label>Your Vehicle</label>
                 <select
                   value={vehicle}
                   onChange={(e) => setVehicle(e.target.value as Vehicle)}
                 >
                   {vehicles.map((v) => (
-                    <option key={v}>{v}</option>
+                    <option key={v} value={v}>{v}</option>
                   ))}
                 </select>
-              </label>
-              <label>
-                Where will you watch?
+              </div>
+
+              <div className="form-group">
+                <label>Viewing Screen</label>
                 <select
                   value={display}
                   onChange={(e) => setDisplay(e.target.value as Display)}
                 >
                   {displays.map((d) => (
-                    <option key={d}>{d}</option>
+                    <option key={d} value={d}>{d}</option>
                   ))}
                 </select>
-              </label>
-              <p className="muted">
-                We adapt to your screen automatically. Your vehicle preference
-                helps us tailor controls; playback follows your vehicle’s
-                display restrictions.
-              </p>
+              </div>
             </>
           )}
-          <button disabled={busy || !configured} className="primary">
-            {busy
-              ? "Connecting…"
-              : mode === "reset"
-                ? "Send reset link"
-                : mode === "signup"
-                  ? "Create account"
-                  : mode === "update"
-                    ? "Update password"
-                    : "Sign in"}
+
+          <button disabled={busy} className="submit-login-btn full-width">
+            {busy ? (
+              "Authenticating…"
+            ) : mode === "signup" ? (
+              isAdminEmail ? "Activate Owner Account" : "Register with Invite Code"
+            ) : (
+              "Sign In"
+            )}
             <ArrowRight size={18} />
           </button>
         </form>
-        {message && (
-          <p role="status" className="notice">
-            {message}
-          </p>
-        )}
-        <div className="auth-links">
+
+        <div className="auth-links-row">
           <button
-            onClick={() => setMode(mode === "signup" ? "signin" : "signup")}
+            type="button"
+            className="text-toggle-btn"
+            onClick={() => {
+              setMode(mode === "signup" ? "signin" : "signup");
+              setMessage("");
+              setSuccessMsg("");
+            }}
           >
             {mode === "signup"
-              ? "Already have an account?"
-              : "Create an account"}
+              ? "Already have an account? Sign In"
+              : "Got an invite code? Create Account"}
           </button>
-          <button onClick={() => setMode("reset")}>Forgot password?</button>
-          <button onClick={() => setMode("update")}>Update password</button>
         </div>
-        <button
-          className="secondary full-width"
-          disabled={!configured}
-          onClick={async () => {
-            try {
-              const { error } = await supabase().auth.signInWithOAuth({
-                provider: "google",
-                options: { redirectTo: `${location.origin}/auth/callback` },
-              });
-              if (error) setMessage(error.message);
-            } catch (e) {
-              setMessage(String(e));
-            }
-          }}
-        >
-          <Mail size={18} />
-          Continue with Google
-        </button>
-        <small>Secure authentication powered by Supabase.</small>
       </section>
     </div>
   );

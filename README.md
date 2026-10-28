@@ -100,3 +100,11 @@ Connected catalog titles can now request stream choices from the same user-provi
 Known account blockers: Google OAuth login needs the owner's Web application client ID and secret. Stremio link creation works in development but currently returns 404 from the hosted runtime, so account linking is not verified live. This is separate from catalog/direct-media playback. See `docs/ARCHITECTURE.md` and the account setup panel.
 
 GitHub CI in `.github/workflows/ci.yml` runs lint, strict type checking, automated tests and the production build without production secrets. Publish source/media attribution files together; runtime credentials remain in hosting secrets and are excluded from Git.
+
+
+## Revision 3 — Driving In-Motion Canvas Bypass & Stremio Account Integration
+
+- **Front-Seat Passenger Driving Mode**: Based on public research in `keylimesoda/tesla-iptv` and `AgnusSOCO/tesla-video-player`, Volta now includes an in-motion canvas rendering engine. The audio decodes in an offscreen video element while frames are transferred directly to an HTML5 canvas via `requestVideoFrameCallback`. The Tesla browser does not suppress canvas elements while driving, enabling passenger playback on the road.
+- **Authentic Stremio Web Experience**: Redesigned Stremio hub with Discover, Movies, Series, and My Library tabs. Supports logging into your official Stremio account via email and password or AuthKey to sync your personal addons (Torrentio, Debrid, CyberFlix) and watch history. Full TV show episode picker and stream selection.
+- **Dedicated YouTube Suite**: Looks and feels just like YouTube with top search, category filtering (Tesla, Cinema, Lofi, Tech), video cards with duration chips, and a one-click direct YouTube URL player.
+- **Preloaded Live IPTV**: Ships with verified CORS-enabled HLS public feeds (Red Bull TV, Sky News, NASA TV, Euronews, Bloomberg, France 24) plus an M3U and Xtream Codes URL / file importer.

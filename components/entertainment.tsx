@@ -54,6 +54,12 @@ import YouTubeSetup from "./youtube-setup";
 import ProviderAccount from "./provider-account";
 import { addonResource, browserStreams, BrowserStream } from "@/lib/addons";
 import CabinLauncher from "./cabin-launcher";
+import YouTubeView from "./youtube-view";
+import StremioView from "./stremio-view";
+import IptvView from "./iptv-view";
+import { Car, Crown } from "lucide-react";
+import SecretMenu from "./secret-menu";
+import { getActiveUser, isMasterAdmin } from "@/lib/accounts";
 const navigation = [
   { name: "Home", icon: Home },
   { name: "YouTube", icon: Youtube },
@@ -63,6 +69,7 @@ const navigation = [
   { name: "History", icon: History },
 ];
 export default function Entertainment() {
+  const [secretMenuOpen, setSecretMenuOpen] = useState(false);
   const [vehicle, setVehicle] = useState<Vehicle>("Tesla Model 3"),
     [display, setDisplay] = useState<Display>("Center display (parked)");
   const [streamChoices, setStreamChoices] = useState<{
@@ -135,6 +142,10 @@ export default function Entertainment() {
       readLocal(`volta.library.guest.${id}`, { favorites: [], history: [] }),
     );
     setReady(true);
+    const activeU = getActiveUser();
+    if (activeU) {
+      setAccount(activeU.email);
+    }
     if (configured) {
       const client = supabase();
       client.auth.getUser().then(({ data }) => {
@@ -667,6 +678,20 @@ export default function Entertainment() {
               <Wifi size={17} />
               <span>Connected</span>
             </span>
+            <span className="drive-badge">
+              <Car size={13} />
+              <span>IN-MOTION ACTIVE</span>
+            </span>
+            {isMasterAdmin(account) && (
+              <button
+                className="secret-menu-trigger-btn"
+                onClick={() => setSecretMenuOpen(true)}
+                title="Open Owner Secret Vault & Invites"
+              >
+                <Crown size={15} />
+                <span>SECRET VAULT</span>
+              </button>
+            )}
             <button
               className="profile-trigger"
               onClick={() => setProfileOpen(!profileOpen)}
@@ -771,6 +796,12 @@ export default function Entertainment() {
                     });
               }}
             />
+          ) : page === "YouTube" && results === null ? (
+            <YouTubeView onPlay={play} />
+          ) : page === "Stremio" && results === null ? (
+            <StremioView onPlay={play} />
+          ) : page === "Live TV" && results === null ? (
+            <IptvView onPlay={play} />
           ) : page === "Settings" ? (
             <div className="inner-page">
               <div className="page-title">
@@ -1610,8 +1641,14 @@ export default function Entertainment() {
       {authOpen && (
         <Auth
           close={() => setAuthOpen(false)}
-          onSignedIn={() => notify("Welcome back. Your account is connected.")}
+          onSignedIn={(user) => {
+            setAccount(user.email);
+            notify(`Welcome back, ${user.name}! Your account is active.`);
+          }}
         />
+      )}
+      {secretMenuOpen && (
+        <SecretMenu onClose={() => setSecretMenuOpen(false)} />
       )}{" "}
       {setupOpen && (
         <div className="modal-backdrop">

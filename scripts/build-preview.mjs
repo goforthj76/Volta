@@ -7,6 +7,7 @@ try {
   for (const p of paths) await rename(p, `.preview-routes/${p.split("/")[1]}`);
   const r = spawnSync("npm", ["run", "build"], {
     stdio: "inherit",
+    shell: true,
     env: { ...process.env, VOLTA_STATIC: "1", NEXT_PUBLIC_STATIC_PREVIEW: "1" },
   });
   if (r.status) process.exitCode = r.status;

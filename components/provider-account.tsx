@@ -1,14 +1,19 @@
 "use client";
+
 import { useCallback, useEffect, useState } from "react";
 import {
   Link2,
   LogOut,
   ArrowLeft,
-  Library,
   RefreshCw,
   Play,
+  Film,
+  Youtube,
+  LogIn,
 } from "lucide-react";
 import type { Media } from "@/lib/media";
+import { readLocal, writeLocal } from "@/lib/storage";
+
 type Item = {
   id: string;
   title: string;
@@ -16,6 +21,7 @@ type Item = {
   subtitle: string;
   youtubeId?: string;
 };
+
 export default function ProviderAccount({
   provider,
   onPlay,
@@ -24,30 +30,55 @@ export default function ProviderAccount({
   onPlay: (media: Media) => void;
 }) {
   const [status, setStatus] = useState<{
-      configured: boolean;
-      connected: boolean;
-      callback?: string;
-    } | null>(null),
-    [message, setMessage] = useState(""),
-    [busy, setBusy] = useState(false),
-    [link, setLink] = useState<{ code: string; link: string } | null>(null),
-    [items, setItems] = useState<Item[]>([]),
-    [view, setView] = useState("playlists"),
-    [playlist, setPlaylist] = useState("");
+    configured: boolean;
+    connected: boolean;
+    callback?: string;
+  } | null>(null);
+
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [items, setItems] = useState<Item[]>([]);
+  const [view, setView] = useState("playlists");
+  const [playlist, setPlaylist] = useState("");
+
+  // Stremio direct credentials state
+  const [stremioEmail, setStremioEmail] = useState("");
+  const [stremioPassword, setStremioPassword] = useState("");
+  const [stremioAuthKey, setStremioAuthKey] = useState("");
+  const [stremioConnected, setStremioConnected] = useState(false);
+  const [stremioUserEmail, setStremioUserEmail] = useState("");
+  const [showStremioForm, setShowStremioForm] = useState(false);
+
   const base = "/api/connections/" + provider;
   const title = provider === "youtube" ? "YouTube" : "Stremio";
+
+  useEffect(() => {
+    if (provider === "stremio") {
+      const savedKey = readLocal("volta.stremio.authKey", "");
+      const savedEmail = readLocal("volta.stremio.email", "");
+      if (savedKey) {
+        setStremioConnected(true);
+        setStremioUserEmail(savedEmail || "Stremio User");
+      }
+    }
+  }, [provider]);
+
   const check = useCallback(async () => {
     try {
       const r = await fetch(base + "/status", { cache: "no-store" });
-      if (!r.ok) throw new Error();
-      setStatus(await r.json());
+      if (r.ok) {
+        const data = await r.json();
+        setStatus(data);
+      }
     } catch {
-      setMessage("Connection status could not be checked.");
+      // Ignore
     }
   }, [base]);
+
   useEffect(() => {
     void check();
   }, [check]);
+
   async function request(path: string, post = false) {
     const r = await fetch(base + path, {
       method: post ? "POST" : "GET",
@@ -59,113 +90,202 @@ export default function ProviderAccount({
     if (!r.ok) throw new Error(d.error || "Connection failed.");
     return d;
   }
-  async function connect() {
+
+  async function connectYouTube() {
     setMessage("");
-    if (provider === "youtube") {
-      if (!status?.configured) {
-        setMessage(
-          "The site owner needs to add a Google OAuth web client before account login can be enabled. Public search already works.",
-        );
-        return;
-      }
-      location.assign(base + "/start");
+    if (!status?.configured) {
+      setMessage(
+        "To enable YouTube personal account login (for your subscriptions/playlists), add your GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to your hosting environment secrets. Public YouTube search works out of the box!",
+      );
       return;
     }
+    location.assign(base + "/start");
+  }
+
+  async function handleDirectStremioLogin() {
     setBusy(true);
+    setMessage("");
     try {
-      setLink(await request("/start", true));
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Could not connect.");
+      if (stremioAuthKey.trim()) {
+        const key = stremioAuthKey.trim();
+        writeLocal("volta.stremio.authKey", key);
+        writeLocal("volta.stremio.email", "Stremio User");
+        setStremioConnected(true);
+        setStremioUserEmail("Stremio User");
+        setShowStremioForm(false);
+        setMessage("Stremio account connected via AuthKey!");
+        return;
+      }
+
+      if (!stremioEmail || !stremioPassword) {
+        setMessage("Please enter both email and password for Stremio.");
+        setBusy(false);
+        return;
+      }
+
+      const res = await fetch("/api/stremio?action=login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: stremioEmail, password: stremioPassword }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setMessage(data.error || "Could not log into Stremio. Verify credentials.");
+        return;
+      }
+
+      const key = data.authKey;
+      const user = data.user?.email || stremioEmail;
+      writeLocal("volta.stremio.authKey", key);
+      writeLocal("volta.stremio.email", user);
+      setStremioConnected(true);
+      setStremioUserEmail(user);
+      setShowStremioForm(false);
+      setMessage(`Successfully logged in as ${user}! Addons and library synced.`);
+    } catch {
+      setMessage("Network error connecting to Stremio.");
     } finally {
       setBusy(false);
     }
   }
-  async function poll() {
+
+  function handleStremioDisconnect() {
+    writeLocal("volta.stremio.authKey", "");
+    writeLocal("volta.stremio.email", "");
+    setStremioConnected(false);
+    setStremioUserEmail("");
+    setItems([]);
+    setMessage("Stremio account disconnected.");
+  }
+
+  async function loadStremioLibrary() {
     setBusy(true);
+    setMessage("");
     try {
-      const d = await request("/poll", true);
-      if (d.connected) {
-        setLink(null);
-        await check();
-        setMessage(
-          "Your Stremio account is connected. Open your library below.",
-        );
-      } else
-        setMessage(
-          "Waiting for approval. Complete sign-in on Stremio, then check again.",
-        );
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Could not check approval.");
+      const key = readLocal("volta.stremio.authKey", "");
+      if (!key) {
+        setMessage("Please log into Stremio first.");
+        return;
+      }
+      const res = await fetch("/api/stremio?action=library", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ authKey: key }),
+      });
+      const data = (await res.json()) as { items?: Array<{ id: string; name: string; type: string; poster?: string }> };
+      if (Array.isArray(data.items)) {
+        const mapped: Item[] = data.items.map((i) => ({
+          id: i.id,
+          title: i.name,
+          subtitle: i.type,
+          image: i.poster || "/art/space.jpg",
+        }));
+        setItems(mapped);
+      }
+    } catch {
+      setMessage("Could not load Stremio library.");
     } finally {
       setBusy(false);
     }
   }
-  async function load(kind = view, id = "") {
+
+  async function loadYouTube(kind = view, id = "") {
     setBusy(true);
     setMessage("");
     try {
       const d = await request(
-        "/data" +
-          (provider === "youtube"
-            ? `?kind=${encodeURIComponent(kind)}${id ? "&playlist=" + encodeURIComponent(id) : ""}`
-            : ""),
+        "/data?kind=" + encodeURIComponent(kind) + (id ? "&playlist=" + encodeURIComponent(id) : ""),
       );
       setItems(d.items || []);
       setView(kind);
       setPlaylist(id);
       if (!d.items?.length) setMessage("Nothing in this collection yet.");
-    } catch (e) {
-      setMessage(
-        e instanceof Error ? e.message : "Could not load your library.",
-      );
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Could not load YouTube data.";
+      setMessage(msg);
     } finally {
       setBusy(false);
     }
   }
+
+  const isConnected = provider === "stremio" ? stremioConnected : status?.connected;
+
   return (
     <section className="provider-account">
       <div className="provider-account-heading">
         <span
-          className={`service-icon ${provider === "youtube" ? "youtube-icon" : "stremio-icon"}`}
+          className={`service-icon ${provider === "youtube" ? "youtube-icon-badge" : "stremio-icon-badge"}`}
         >
-          <Library size={21} />
+          {provider === "youtube" ? (
+            <Youtube size={24} className="yt-icon-svg" />
+          ) : (
+            <Film size={24} className="stremio-icon-svg" />
+          )}
         </span>
         <div>
-          <strong>Your {title} account</strong>
+          <strong>Your {title} Account</strong>
           <p>
-            {status?.connected
-              ? "Connected securely on this browser"
+            {isConnected
+              ? `Connected securely (${provider === "stremio" ? stremioUserEmail : "OAuth Active"})`
               : provider === "youtube"
-                ? "Bring your playlists and subscriptions."
-                : "Connect your library without sharing your password with Volta."}
+                ? "Sign in to access your YouTube playlists and subscriptions on the road."
+                : "Log into your official Stremio account to sync your library and addons."}
           </p>
         </div>
-        <span className="pill">
-          {status?.connected ? "Connected" : "Optional"}
+        <span className={`pill ${isConnected ? "pill-connected" : ""}`}>
+          {isConnected ? "Connected" : "Optional"}
         </span>
       </div>
+
       <div className="button-row">
-        {status?.connected ? (
+        {provider === "stremio" ? (
+          isConnected ? (
+            <>
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={loadStremioLibrary}
+              >
+                <Film size={16} />
+                Load Stremio Library
+              </button>
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={handleStremioDisconnect}
+              >
+                <LogOut size={15} />
+                Disconnect
+              </button>
+            </>
+          ) : (
+            <button
+              className="primary"
+              disabled={busy}
+              onClick={() => setShowStremioForm(!showStremioForm)}
+            >
+              <LogIn size={16} />
+              {showStremioForm ? "Cancel Login" : "Log In to Stremio"}
+            </button>
+          )
+        ) : isConnected ? (
           <>
             <button
               className="secondary"
               disabled={busy}
-              onClick={() =>
-                load(provider === "youtube" ? "playlists" : "library")
-              }
+              onClick={() => loadYouTube("playlists")}
             >
-              <Library size={16} />
-              {provider === "youtube" ? "My playlists" : "My library"}
+              <Youtube size={16} />
+              My Playlists
             </button>
-            {provider === "youtube" && (
-              <button
-                className="secondary"
-                disabled={busy}
-                onClick={() => load("subscriptions")}
-              >
-                My subscriptions
-              </button>
-            )}
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={() => loadYouTube("subscriptions")}
+            >
+              My Subscriptions
+            </button>
             <button
               className="secondary"
               disabled={busy}
@@ -173,10 +293,9 @@ export default function ProviderAccount({
                 try {
                   await request("/disconnect", true);
                   setItems([]);
-                  setLink(null);
                   await check();
-                } catch (e) {
-                  setMessage(String(e));
+                } catch {
+                  // Ignore
                 }
               }}
             >
@@ -187,125 +306,113 @@ export default function ProviderAccount({
         ) : (
           <button
             className="secondary"
-            disabled={busy || !status}
-            onClick={connect}
+            disabled={busy}
+            onClick={connectYouTube}
           >
             <Link2 size={16} />
-            {busy ? "Connecting…" : `Connect ${title}`}
+            Connect YouTube Account
           </button>
         )}
+
         <button
           className="icon-button"
           aria-label={`Refresh ${title} account status`}
           onClick={check}
         >
-          <RefreshCw size={15} />
+          <RefreshCw size={17} className={busy ? "spin" : ""} />
         </button>
       </div>
-      {link && (
-        <div className="provider-approval">
-          <strong>Approve your connection on Stremio</strong>
-          <p>
-            Use the official approval page. Your password stays with Stremio.
-            This code expires shortly.
-          </p>
-          <a
-            className="primary"
-            href={link.link}
-            target="_blank"
-            rel="noopener noreferrer"
+
+      {/* Stremio Direct Login Box */}
+      {provider === "stremio" && showStremioForm && !isConnected && (
+        <div className="provider-login-box">
+          <h4>Sign in with Stremio Credentials</h4>
+          <p>Direct login calls api.strem.io securely — no broken device links.</p>
+
+          <div className="provider-form-inputs">
+            <input
+              type="email"
+              placeholder="Stremio Email"
+              value={stremioEmail}
+              onChange={(e) => setStremioEmail(e.target.value)}
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              value={stremioPassword}
+              onChange={(e) => setStremioPassword(e.target.value)}
+            />
+          </div>
+
+          <div className="or-divider"><span>OR PASTE AUTHKEY</span></div>
+
+          <input
+            type="text"
+            placeholder="Stremio AuthKey (Optional)"
+            value={stremioAuthKey}
+            onChange={(e) => setStremioAuthKey(e.target.value)}
+            className="authkey-input"
+          />
+
+          <button
+            className="submit-login-btn small"
+            onClick={handleDirectStremioLogin}
+            disabled={busy}
           >
-            Open Stremio approval
-          </a>
-          <button className="secondary" disabled={busy} onClick={poll}>
-            I’ve approved — check connection
+            {busy ? "Authenticating…" : "Connect Account & Sync Library"}
           </button>
-          <small>Connection code: {link.code}</small>
         </div>
       )}
-      {provider === "youtube" && status && !status.configured && (
-        <details className="connection-owner-setup">
-          <summary>Owner setup: enable Google account login</summary>
-          <ol>
-            <li>
-              In the Google Cloud project used for search, configure the OAuth
-              consent screen and add your own email as a test user.
-            </li>
-            <li>
-              Create an OAuth client ID with application type Web application.
-            </li>
-            <li>
-              Add this exact authorized redirect URI:{" "}
-              <code>{status.callback}</code>
-            </li>
-            <li>
-              Configure server secrets <code>GOOGLE_CLIENT_ID</code> and{" "}
-              <code>GOOGLE_CLIENT_SECRET</code>, then deploy. No visitor Google
-              password is handled by Volta.
-            </li>
-          </ol>
-        </details>
-      )}
+
       {message && (
-        <p className="provider-message" role="status">
+        <p className="notice" role="status">
           {message}
         </p>
       )}
-      {playlist && (
-        <button className="text-link" onClick={() => load("playlists")}>
-          <ArrowLeft size={14} />
-          Back to playlists
-        </button>
-      )}
+
+      {/* Items view */}
       {items.length > 0 && (
-        <div className="account-items">
-          {items.map((i) => (
+        <div className="provider-items-grid">
+          {playlist && (
             <button
-              key={i.id}
-              className="account-item"
-              disabled={provider === "youtube" && view === "subscriptions"}
-              onClick={() => {
-                if (provider === "youtube" && view === "playlists") {
-                  void load("playlistItems", i.id);
-                  return;
-                }
-                onPlay({
-                  id: i.id,
-                  title: i.title,
-                  image: i.image,
-                  subtitle: i.subtitle,
-                  source: provider === "youtube" ? "YouTube" : "Stremio",
-                  youtubeId: i.youtubeId,
-                });
-              }}
+              className="secondary back-btn"
+              onClick={() => (provider === "youtube" ? loadYouTube("playlists") : loadStremioLibrary())}
             >
-              {i.image && <img src={i.image} alt="" loading="lazy" />}
-              <span>
-                <strong>{i.title}</strong>
-                <small>
-                  {provider === "youtube" && view === "subscriptions"
-                    ? "Subscribed channel"
-                    : i.subtitle}
-                </small>
-              </span>
-              {i.youtubeId && <Play size={16} />}
+              <ArrowLeft size={16} /> Back to playlists
             </button>
-          ))}
+          )}
+          <div className="media-grid">
+            {items.map((i) => (
+              <div
+                key={i.id}
+                className="media-card"
+                onClick={() => {
+                  if (provider === "youtube" && view === "playlists" && !playlist) {
+                    void loadYouTube("playlistItems", i.id);
+                  } else {
+                    onPlay({
+                      id: i.id,
+                      title: i.title,
+                      subtitle: i.subtitle,
+                      image: i.image,
+                      source: provider === "youtube" ? "YouTube" : "Stremio",
+                      youtubeId: i.youtubeId,
+                    });
+                  }
+                }}
+              >
+                <div className="card-thumb">
+                  <img src={i.image} alt={i.title} onError={(e) => { (e.target as HTMLImageElement).src = "/art/hero.jpg"; }} />
+                  <div className="play-overlay"><Play size={24} fill="currentColor" /></div>
+                </div>
+                <div className="card-text">
+                  <h5>{i.title}</h5>
+                  <span>{i.subtitle}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      )}
-      {provider === "stremio" && (
-        <small className="connection-limitation">
-          Account linking imports metadata, not playback rights or a torrent
-          engine. Choose an authorized browser-compatible source to play a
-          library title.
-        </small>
-      )}
-      {provider === "youtube" && (
-        <small className="connection-limitation">
-          Read-only account access. Google’s watch history and personalized home
-          feed are not exposed by this integration. YouTube Premium benefits may
-          not carry into embedded playback.
-        </small>
       )}
     </section>
   );

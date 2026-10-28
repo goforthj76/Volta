@@ -1,0 +1,78 @@
+import { Media } from "./media";
+
+export type ChannelCategory = "All" | "News" | "Sports" | "Entertainment" | "Tech & Space" | "Music";
+
+export const defaultChannels: Media[] = [
+  {
+    id: "redbull-tv",
+    title: "Red Bull TV",
+    subtitle: "Extreme Sports & Live Events",
+    group: "Sports",
+    source: "Live TV",
+    image: "https://images.redbull.com/shape:fill,width:320,height:180/redbullcom/2020/6/17/i9gqg2p9h1wvvqg5fqb8/red-bull-tv-logo",
+    url: "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8",
+  },
+  {
+    id: "sky-news",
+    title: "Sky News Live",
+    subtitle: "24/7 International Breaking News",
+    group: "News",
+    source: "Live TV",
+    image: "https://upload.wikimedia.org/wikipedia/en/thumb/d/d2/Sky_News_2018.svg/320px-Sky_News_2018.svg.png",
+    url: "https://live.sky.com/hls/live/2007281/skynews_slot1/index.m3u8",
+  },
+  {
+    id: "nasa-tv",
+    title: "NASA TV HD",
+    subtitle: "Space Exploration & Live Missions",
+    group: "Tech & Space",
+    source: "Live TV",
+    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/NASA_logo.svg/320px-NASA_logo.svg.png",
+    url: "https://ntv1.akamaized.net/hls/live/2014075/NASA-NTV1-HLS/master.m3u8",
+  },
+  {
+    id: "euronews-en",
+    title: "Euronews English",
+    subtitle: "European & Global Perspectives",
+    group: "News",
+    source: "Live TV",
+    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Euronews_2016_logo.svg/320px-Euronews_2016_logo.svg.png",
+    url: "https://euronews-euronews-world-1-eu.rakuten.wurl.tv/playlist.m3u8",
+  },
+  {
+    id: "france24-en",
+    title: "France 24 English",
+    subtitle: "Live International News from Paris",
+    group: "News",
+    source: "Live TV",
+    image: "https://upload.wikimedia.org/wikipedia/en/thumb/e/ec/France_24_logo.svg/320px-France_24_logo.svg.png",
+    url: "https://stream.france24.com/hls/live/2037554/F24_EN_LO_HLS/master.m3u8",
+  },
+  {
+    id: "aljazeera-en",
+    title: "Al Jazeera English",
+    subtitle: "In-depth World Coverage",
+    group: "News",
+    source: "Live TV",
+    image: "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Al_Jazeera_English_logo.svg/320px-Al_Jazeera_English_logo.svg.png",
+    url: "https://live-hls-web-aje.getaj.net/AJE/01.m3u8",
+  },
+  {
+    id: "bloomberg-quicktake",
+    title: "Bloomberg Originals",
+    subtitle: "Business, Finance & Tech Innovation",
+    group: "Tech & Space",
+    source: "Live TV",
+    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Bloomberg_logo.svg/320px-Bloomberg_logo.svg.png",
+    url: "https://liveproduseast.akamaized.net/us/Channel-HD-AWS-virginia-1/master.m3u8",
+  },
+  {
+    id: "lofi-stream",
+    title: "Lofi Beats & Relax",
+    subtitle: "Non-stop Passenger Chillout Music",
+    group: "Music",
+    source: "Live TV",
+    image: "/art/city.jpg",
+    url: "https://playertest.longtailvideo.com/adaptive/oceans_aes/oceans_aes.m3u8",
+  },
+];
