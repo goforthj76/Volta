@@ -11,8 +11,6 @@ import {
   Settings,
   Search,
   ChevronDown,
-  ChevronRight,
-  ArrowUpRight,
   Play,
   Plus,
   Check,
@@ -21,6 +19,7 @@ import {
   X,
   Radio,
   ArrowRight,
+  ArrowUpRight,
   MonitorPlay,
   UserRound,
   LogOut,
@@ -52,7 +51,7 @@ import { vehicles, displays, Vehicle, Display } from "@/lib/vehicle";
 import Player from "./player";
 import Auth from "./auth";
 import YouTubeSetup from "./youtube-setup";
-import CockpitHero from "./cockpit-hero";
+import CabinLauncher from "./cabin-launcher";
 const navigation = [
   { name: "Home", icon: Home },
   { name: "YouTube", icon: Youtube },
@@ -61,19 +60,10 @@ const navigation = [
   { name: "Favorites", icon: Heart },
   { name: "History", icon: History },
 ];
-const categories = [
-  "For you",
-  "Adventure",
-  "Nature & outdoors",
-  "Music",
-  "Technology",
-  "Documentaries",
-];
 export default function Entertainment() {
   const [vehicle, setVehicle] = useState<Vehicle>("Tesla Model 3"),
     [display, setDisplay] = useState<Display>("Center display (parked)");
   const [page, setPage] = useState("Home"),
-    [category, setCategory] = useState("For you"),
     [query, setQuery] = useState(""),
     [searchOpen, setSearchOpen] = useState(false),
     [profiles, setProfiles] = useState<Profile[]>(defaultProfiles),
@@ -477,7 +467,6 @@ export default function Entertainment() {
                   ...stremioItems,
                 ]
               : featured);
-  const continueItems = library.history.filter((m) => (m.progress || 0) > 0);
   function card(m: Media, index: number, wide = false) {
     return (
       <article
@@ -548,6 +537,7 @@ export default function Entertainment() {
   return (
     <div
       className={`app ${compact ? "compact" : ""}`}
+      data-page={page === "Home" && results !== null ? "Search" : page}
       data-vehicle={vehicle}
       data-display={display}
     >
@@ -702,229 +692,36 @@ export default function Entertainment() {
             </form>
           )}
           {page === "Home" && results === null ? (
-            <>
-              <CockpitHero
-                vehicle={vehicle}
-                onPlay={() => play(featured[0])}
-                onExplore={() =>
-                  document
-                    .getElementById("app-launcher")
-                    ?.scrollIntoView({ behavior: "smooth" })
-                }
-              />
-              <div className="launcher-heading">
-                <span>YOUR ENTERTAINMENT, IN ONE PLACE</span>
-                <span>
-                  03 APPS <i /> ALWAYS WITH YOU
-                </span>
-              </div>
-              <section className="quick-access" id="app-launcher">
-                <button onClick={() => navigate("YouTube")}>
-                  <span className="service-icon youtube-icon">
-                    <Youtube size={24} />
-                  </span>
-                  <span>
-                    <strong>YouTube</strong>
-                    <small>Find your next obsession</small>
-                    <span className="app-tile-label">WATCH & DISCOVER</span>
-                  </span>
-                  <ArrowUpRight size={20} />
-                </button>
-                <button onClick={() => navigate("Live TV")}>
-                  <span className="service-icon tv-icon">
-                    <Tv size={24} />
-                  </span>
-                  <span>
-                    <strong>Live TV</strong>
-                    <small>Your channels. In the moment.</small>
-                    <span className="app-tile-label">LIVE & ON DEMAND</span>
-                  </span>
-                  <ArrowUpRight size={20} />
-                </button>
-                <button onClick={() => navigate("Stremio")}>
-                  <span className="service-icon stremio-icon">
-                    <Library size={24} />
-                  </span>
-                  <span>
-                    <strong>Stremio</strong>
-                    <small>Your library, ready for the ride</small>
-                    <span className="app-tile-label">FILMS & SERIES</span>
-                  </span>
-                  <ArrowUpRight size={20} />
-                </button>
-              </section>
-              <div className="content-area">
-                <div className="section-heading">
-                  <div>
-                    <h2>
-                      {continueItems.length
-                        ? "Pick up where you left off"
-                        : "Settle in. Press play."}
-                      <span className="heading-dot" />
-                    </h2>
-                    <p>
-                      {continueItems.length
-                        ? "Good stories deserve a little more time."
-                        : "Open films and an original visual escape. Ready to watch."}
-                    </p>
-                  </div>
-                  <button
-                    className="text-link"
-                    onClick={() =>
-                      navigate(continueItems.length ? "History" : "Stremio")
-                    }
-                  >
-                    View all
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
-                <div className="media-grid">
-                  {(continueItems.length ? continueItems : featured)
-                    .slice(0, 4)
-                    .map((m, i) => card(m, i))}
-                </div>
-                <section id="discover" className="discover-section">
-                  <div className="section-heading">
-                    <div>
-                      <h2>Beyond the windshield</h2>
-                      <p>
-                        A change of scenery. A new perspective. Your next
-                        obsession.
-                      </p>
-                    </div>
-                    <span className="curated">
-                      <span /> CURATED FOR YOUR JOURNEY
-                    </span>
-                  </div>
-                  <div className="category-tabs">
-                    {categories.map((c) => (
-                      <button
-                        className={category === c ? "active" : ""}
-                        key={c}
-                        onClick={() => setCategory(c)}
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="editorial-grid">
-                    {(category === "Music"
-                      ? [
-                          {
-                            title: "Find your frequency.",
-                            tag: "TURN IT UP",
-                            image: artwork.city,
-                            action: () => navigate("YouTube"),
-                          },
-                          {
-                            title: "A little room to unwind.",
-                            tag: "SLOW THINGS DOWN",
-                            image: artwork.ocean,
-                            action: () =>
-                              play(
-                                featured.find((m) => m.source === "YouTube")!,
-                              ),
-                          },
-                        ]
-                      : category === "Technology"
-                        ? [
-                            {
-                              title: "A different perspective.",
-                              tag: "BEYOND THE EVERYDAY",
-                              image: artwork.space,
-                              action: () => play(featured[3]),
-                            },
-                            {
-                              title: "Stay curious.",
-                              tag: "DISCOVER SOMETHING NEW",
-                              image: artwork.mountain,
-                              action: () => navigate("YouTube"),
-                            },
-                          ]
-                        : [
-                            {
-                              title:
-                                category === "Documentaries"
-                                  ? "Stories beyond the ordinary."
-                                  : "Take the scenic route.",
-                              tag: "GO A LITTLE FURTHER",
-                              image: artwork.road,
-                              action: () => play(featured[2]),
-                            },
-                            {
-                              title:
-                                category === "Nature & outdoors"
-                                  ? "Into the wild."
-                                  : "Less scrolling. More wonder.",
-                              tag: "A FRESH PERSPECTIVE",
-                              image: artwork.ocean,
-                              action: () => play(featured[0]),
-                            },
-                          ]
-                    ).map((e, i) => (
-                      <button
-                        className="editorial-card"
-                        key={i}
-                        onClick={e.action}
-                      >
-                        <img src={e.image} alt="" loading="lazy" />
-                        <span className="editorial-shade" />
-                        <span className="editorial-content">
-                          <small>{e.tag}</small>
-                          <strong>{e.title}</strong>
-                          <span>
-                            Discover more <ArrowRight size={17} />
-                          </span>
-                        </span>
-                        <span className="editorial-arrow">
-                          <ArrowUpRight size={21} />
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-                {library.favorites.length > 0 && (
-                  <section>
-                    <div className="section-heading">
-                      <div>
-                        <h2>Always a favorite</h2>
-                        <p>Your collection, ready when you are.</p>
-                      </div>
-                      <button
-                        className="text-link"
-                        onClick={() => navigate("Favorites")}
-                      >
-                        View all
-                        <ChevronRight size={16} />
-                      </button>
-                    </div>
-                    <div className="media-grid">
-                      {library.favorites.slice(0, 4).map((m, i) => card(m, i))}
-                    </div>
-                  </section>
-                )}
-                {library.history.some((m) => m.source === "YouTube") && (
-                  <section>
-                    <div className="section-heading">
-                      <h2>Recently on YouTube</h2>
-                    </div>
-                    <div className="media-grid">
-                      {library.history
-                        .filter((m) => m.source === "YouTube")
-                        .slice(0, 4)
-                        .map((m, i) => card(m, i))}
-                    </div>
-                  </section>
-                )}
-                <div className="journey-footer">
-                  <span className="mini-logo">
-                    v<span>•</span>
-                  </span>
-                  <p>Your Tesla. A new dimension of entertainment.</p>
-                  <span>DESIGNED FOR YOUR DOWNTIME</span>
-                </div>
-              </div>
-            </>
+            <CabinLauncher
+              name={profile?.name || "Alex"}
+              vehicle={vehicle}
+              display={display}
+              hasHistory={library.history.length > 0}
+              onNavigate={navigate}
+              onPlay={() => play(featured[0])}
+              onAccount={() => setAuthOpen(true)}
+              onSave={(name, v, d) => {
+                setVehicle(v);
+                setDisplay(d);
+                writeLocal("volta.vehicle", { vehicle: v, display: d });
+                const next = profiles.map((p) =>
+                  p.id === profileId ? { ...p, name } : p,
+                );
+                setProfiles(next);
+                writeLocal("volta.profiles", next);
+                if (account)
+                  supabase()
+                    .auth.updateUser({
+                      data: { vehicle: v, display: d, profiles: next },
+                    })
+                    .then(({ error }) => {
+                      if (error)
+                        notify(
+                          "Saved on this device. Cloud sync is unavailable.",
+                        );
+                    });
+              }}
+            />
           ) : page === "Settings" ? (
             <div className="inner-page">
               <div className="page-title">

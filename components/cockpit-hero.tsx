@@ -10,15 +10,26 @@ import {
 
 export default function CockpitHero({
   vehicle,
+  paintValue,
+  onPaintChange,
   onPlay,
   onExplore,
 }: {
   vehicle: string;
+  paintValue?: number;
+  onPaintChange?: (value: number) => void;
   onPlay: () => void;
   onExplore: () => void;
 }) {
   const scene = useRef<HTMLDivElement>(null);
-  const [paint, setPaint] = useState(0);
+  const [localPaint, setLocalPaint] = useState(0);
+  const paint = paintValue ?? localPaint;
+  function setPaint(value: number) {
+    setLocalPaint(value);
+    onPaintChange?.(value);
+  }
+  const suv = vehicle.includes("Model Y") || vehicle.includes("Model X");
+  const truck = vehicle.includes("Cybertruck");
   const paints = [
     {
       name: "Pearl white",
@@ -148,14 +159,26 @@ export default function CockpitHero({
               />
               <g className="car-body">
                 <path
-                  d="M111 256 Q114 219 156 197 L228 174 Q291 102 388 95 Q466 93 534 155 L647 186 Q692 198 713 234 L716 285 Q704 319 646 335 L230 348 Q149 331 112 296Z"
+                  d={
+                    truck
+                      ? "M111 256 135 205 240 175 376 66 534 155 647 186 713 234 716 285 646 335 230 348 112 296Z"
+                      : suv
+                        ? "M111 256 Q114 219 156 185 L228 156 Q280 63 388 65 Q472 65 534 155 L647 186 Q692 198 713 234 L716 285 Q704 319 646 335 L230 348 Q149 331 112 296Z"
+                        : "M111 256 Q114 219 156 197 L228 174 Q291 102 388 95 Q466 93 534 155 L647 186 Q692 198 713 234 L716 285 Q704 319 646 335 L230 348 Q149 331 112 296Z"
+                  }
                   fill="url(#body)"
                   stroke="#b9c5d2"
                   strokeOpacity=".32"
                   strokeWidth="1.5"
                 />
                 <path
-                  d="M228 174 Q299 114 385 106 Q462 105 525 158 L434 206Z"
+                  d={
+                    truck
+                      ? "M244 174 377 80 516 157 434 206Z"
+                      : suv
+                        ? "M228 156 Q280 80 385 78 Q465 78 525 158 L434 206Z"
+                        : "M228 174 Q299 114 385 106 Q462 105 525 158 L434 206Z"
+                  }
                   fill="url(#glass)"
                   stroke="#a2afbd"
                   strokeWidth="3"

@@ -17,6 +17,8 @@ const chrome = spawn(
     "--remote-debugging-port=9222",
     "--user-data-dir=/tmp/volta-qa-chrome",
     "--no-first-run",
+    "--enable-unsafe-swiftshader",
+    "--use-angle=swiftshader",
     "--autoplay-policy=document-user-activation-required",
     ...(process.env.HTTPS_PROXY
       ? ["--proxy-server=" + process.env.HTTPS_PROXY]
@@ -90,6 +92,9 @@ try {
   };
   await cdp("Runtime.enable");
   await cdp("Page.enable");
+  await cdp("Page.addScriptToEvaluateOnNewDocument", {
+    source: `Object.keys(localStorage).filter(k=>k.startsWith("volta.library.")).forEach(k=>localStorage.removeItem(k));localStorage.setItem("volta.cabinReady","true")`,
+  });
   await cdp("Emulation.setDeviceMetricsOverride", {
     width: 1440,
     height: 1000,
@@ -97,7 +102,11 @@ try {
     mobile: false,
   });
   await cdp("Page.navigate", { url: "http://127.0.0.1:3000" });
-  await pause(3500);
+  await pause(7000);
+  await evaluate(
+    'localStorage.setItem("volta.cabinReady","true");document.querySelector(".cabin-onboarding .modal-close")?.click()',
+  );
+  await pause(400);
   const desktop = await cdp("Page.captureScreenshot", {
     format: "png",
     captureBeyondViewport: false,
@@ -109,7 +118,7 @@ try {
   console.log(
     "Desktop:",
     await evaluate(
-      '({width:innerWidth,body:document.body.scrollWidth,hero:!!document.querySelector(".cockpit-hero"),car:!!document.querySelector(".vehicle-render")})',
+      '({width:innerWidth,body:document.body.scrollWidth,height:innerHeight,scrollHeight:document.documentElement.scrollHeight,tiles:document.querySelectorAll(".cabin-app").length,hero:!!document.querySelector(".cabin-showroom"),car:!!document.querySelector(".real-vehicle-studio canvas")})',
     ),
   );
   await cdp("Emulation.setDeviceMetricsOverride", {
@@ -131,10 +140,35 @@ try {
   console.log(
     "Phone:",
     await evaluate(
-      '({width:innerWidth,body:document.body.scrollWidth,touch:matchMedia("(pointer: coarse)").matches})',
+      '({width:innerWidth,body:document.body.scrollWidth,height:innerHeight,scrollHeight:document.documentElement.scrollHeight,touch:matchMedia("(pointer: coarse)").matches})',
     ),
   );
-  await evaluate('document.querySelector(".cockpit-copy .primary").click()');
+  const fit = await evaluate(
+    "({width:innerWidth,height:innerHeight,scrollWidth:document.documentElement.scrollWidth,scrollHeight:document.documentElement.scrollHeight})",
+  );
+  if (fit.scrollWidth > fit.width || fit.scrollHeight > fit.height)
+    throw new Error("Home screen overflows viewport");
+  await evaluate('document.querySelector(".cabin-personalize").click()');
+  await pause(250);
+  await evaluate(
+    '(()=>{const select=document.querySelector(".onboarding-fields select");select.value="Tesla Model Y";select.dispatchEvent(new Event("change",{bubbles:true}));[...document.querySelectorAll(".onboarding-paints button")][2].click()})()',
+  );
+  await pause(150);
+  await evaluate(
+    'document.querySelector(".cabin-onboarding form").requestSubmit()',
+  );
+  await pause(350);
+  const preferences = await evaluate(
+    '({model:JSON.parse(localStorage.getItem("volta.vehicle")).vehicle,paint:JSON.parse(localStorage.getItem("volta.paint")),caption:document.querySelector(".cabin-model-caption").textContent})',
+  );
+  if (
+    preferences.model !== "Tesla Model Y" ||
+    preferences.paint !== 2 ||
+    !preferences.caption.includes("ULTRA RED")
+  )
+    throw new Error("Cabin personalization did not persist");
+  console.log("Personalization:", preferences);
+  await evaluate('document.querySelector(".cabin-bottom button").click()');
   await pause(800);
   const rect = await evaluate(
     '(()=>{const r=document.querySelector(".big-play").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()',

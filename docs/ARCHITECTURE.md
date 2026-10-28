@@ -39,3 +39,9 @@ Sites now uses its supported Worker ESM deployment format instead of static-only
 `lib/youtube.mjs` implements official Data API search, embeddable/syndicated video filtering, cache, per-isolate request limits, timeouts and redacted upstream errors. Both the Next route and hosted Worker call this exact implementation. `GET /api/status` reports only whether the server secret is configured, never its value. Settings includes owner setup instructions and connection status. No Google key is fabricated or bundled. Search needs the owner's configured Google Cloud key before real upstream verification is possible.
 
 Default playback and navigation stay inside Volta. Provider-imposed embed/codec restrictions are surfaced in place; Stremio cloud-account sync is explicitly not connected, rather than redirecting visitors into another app. Native Google/Supabase login authorization remains a separate provider-controlled flow when configured.
+
+## Fixed-screen cabin launcher
+
+Home is now a `100dvh` launcher with no document scrolling, three app tiles, clock/profile controls and a device-local cabin setup flow. Search results and media libraries retain scrolling within their own screens. Model, display, name and paint preferences persist locally; configured Supabase account metadata can synchronize supported profile values. Device setup is explicitly distinct from secure account creation, which still requires configured Supabase service/callbacks.
+
+The old drawn vehicle is replaced by a lazy-loaded Three.js GLTF studio with a licensed Model 3 mesh, physically based paint, environment reflections, spot/directional lighting, ground shadows and OrbitControls. Rendering occurs on interaction, resize or paint changes rather than a continuous animation loop. Pixel density is capped. Other models currently use a clearly labeled Model 3 preview; exact model-specific assets remain a follow-up. WebGL failure is reported without breaking app navigation.

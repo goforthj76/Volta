@@ -18,6 +18,7 @@ const types = {
   jpg: "image/jpeg",
   png: "image/png",
   mp4: "video/mp4",
+  glb: "model/gltf-binary",
   webmanifest: "application/manifest+json",
   ico: "image/x-icon",
   woff2: "font/woff2",

@@ -70,3 +70,9 @@ Tesdash-inspired graphite glass, per-service ambient lighting, a perspective/par
 5. Open Settings → YouTube setup and refresh the connection status. Search and official embedded playback stay within Volta.
 
 Google does not require an OAuth client for public keyword search. Search consumes daily API quota; request caching reduces repeat use. The current in-memory cache and limiter are per Worker isolate, so use an account/edge distributed limiter before broader public access.
+
+## Fixed-screen launcher and real 3D studio
+
+Home now fits the display without page scrolling, including portrait phones. Three tiles open the built-in YouTube, live TV and Stremio-compatible experiences. Personalize your cabin saves a name, vehicle, display location and paint on the device. Account setup still requires configured Supabase services; device personalization is not represented as account creation.
+
+The scene uses a real CC BY 4.0 Tesla Model 3 mesh with Three.js lighting, shadows, materials and drag-to-rotate controls. Attribution is available from the scene and `public/models/CREDITS.txt`. Other selected model profiles explicitly show the Model 3 studio preview until corresponding licensed assets are added.

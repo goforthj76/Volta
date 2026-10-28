@@ -1,0 +1,8 @@
+Tesla Model 3 by David_Holiday
+https://sketchfab.com/David_Holiday
+Original: https://sketchfab.com/3d-models/tesla-model-3-123c10f376ec4f18b93c73afc382808b
+CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+Model distributed by SceneView: https://sceneview.github.io/models/platforms/tesla_model_3.glb
+Verified attribution is embedded in the GLB asset.extras.
+Volta modifications: runtime paint materials, glass, studio lights, normalization, camera and shadows.
+Independent visualization; no affiliation with Tesla. Other profile models currently use this explicitly labeled Model 3 preview.

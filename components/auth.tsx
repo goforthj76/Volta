@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { vehicles, displays, Vehicle, Display } from "@/lib/vehicle";
-import { writeLocal } from "@/lib/storage";
+import { readLocal, writeLocal } from "@/lib/storage";
 import { X, ArrowRight, Mail, ShieldCheck } from "lucide-react";
 import { configured, supabase } from "@/lib/supabase";
 export default function Auth({
@@ -16,6 +16,7 @@ export default function Auth({
     [mode, setMode] = useState<"signin" | "signup" | "reset" | "update">(
       "signin",
     ),
+    [name, setName] = useState(""),
     [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
     [message, setMessage] = useState(""),
@@ -41,7 +42,12 @@ export default function Auth({
           email,
           password,
           options: {
-            data: { vehicle, display },
+            data: {
+              name,
+              vehicle,
+              display,
+              paint: readLocal("volta.paint", 0),
+            },
             emailRedirectTo: `${location.origin}/auth/callback`,
           },
         });
@@ -101,6 +107,19 @@ export default function Auth({
           </div>
         )}
         <form onSubmit={submit}>
+          {mode === "signup" && (
+            <label>
+              Your name
+              <input
+                required
+                maxLength={24}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="given-name"
+                placeholder="Your first name"
+              />
+            </label>
+          )}
           {mode !== "update" && (
             <label>
               Email address
