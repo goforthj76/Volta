@@ -1,6 +1,8 @@
+import { createConnections } from "../lib/connections.mjs";
 import { createYouTubeSearch } from "../lib/youtube.mjs";
 // The build appends the Next client assets and the shared official search handler.
 const search = createYouTubeSearch();
+const connections = createConnections();
 const security = {
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -43,6 +45,8 @@ export function createWorker(assets) {
   return {
     async fetch(request, env = {}) {
       const url = new URL(request.url);
+      if (url.pathname.startsWith("/api/connections/"))
+        return connections(request, env);
       if (url.pathname === "/api/youtube") return search(request, env);
       if (url.pathname === "/api/status")
         return Response.json(

@@ -76,3 +76,17 @@ Google does not require an OAuth client for public keyword search. Search consum
 Home now fits the display without page scrolling, including portrait phones. Three tiles open the built-in YouTube, live TV and Stremio-compatible experiences. Personalize your cabin saves a name, vehicle, display location and paint on the device. Account setup still requires configured Supabase services; device personalization is not represented as account creation.
 
 The scene uses a real CC BY 4.0 Tesla Model 3 mesh with Three.js lighting, shadows, materials and drag-to-rotate controls. Attribution is available from the scene and `public/models/CREDITS.txt`. Other selected model profiles explicitly show the Model 3 studio preview until corresponding licensed assets are added.
+
+## Connect YouTube / Stremio accounts
+
+Open the provider page or Settings → Connections. Stremio uses official device-link approval; approve at Stremio, return to Volta, then check the connection. Load My library for account metadata. No Stremio password is entered into Volta and no automatic playback rights or torrent support is implied.
+
+YouTube login needs a Google OAuth client in addition to the existing search key:
+
+1. In the existing Google Cloud project configure the OAuth consent screen (YouTube read-only scope) and add your own email as a test user while testing.
+2. Create OAuth client ID → Web application.
+3. Authorized redirect URI: `https://volta-passenger.clearsnow256.chatgpt.site/api/connections/youtube/callback` (use the equivalent origin for other deployments).
+4. Configure server secrets `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, and deploy the updated environment.
+5. Connect YouTube in Volta, approve Google consent, then load My playlists / My subscriptions. Playlist videos play in official embeds. Google watch history/personalized feed and Premium carryover are not promised by this API integration. Production consent verification may be required by Google.
+
+`CONNECTION_ENCRYPTION_KEY` is a 64-character hex encoding of 32 random bytes, stored only as a server secret. It is provisioned on the hosted site; other deployments must generate their own. Do not rotate it unless intentionally invalidating all browser connections. No provider tokens are stored in localStorage or returned to browser JavaScript. Disconnect forgets this browser connection; revoke the app grant in provider settings if needed.

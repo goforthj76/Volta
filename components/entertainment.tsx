@@ -51,6 +51,7 @@ import { vehicles, displays, Vehicle, Display } from "@/lib/vehicle";
 import Player from "./player";
 import Auth from "./auth";
 import YouTubeSetup from "./youtube-setup";
+import ProviderAccount from "./provider-account";
 import CabinLauncher from "./cabin-launcher";
 const navigation = [
   { name: "Home", icon: Home },
@@ -106,6 +107,15 @@ export default function Entertainment() {
   const skipPersist = useRef(false);
   const notify = useCallback((s: string) => setToast(s), []);
   useEffect(() => {
+    const outcome = new URLSearchParams(location.search).get("connection");
+    if (outcome) {
+      setToast(
+        outcome === "youtube-connected"
+          ? "YouTube connected. Open YouTube to see your playlists."
+          : "YouTube sign-in did not finish. Please try again.",
+      );
+      history.replaceState(null, "", location.pathname);
+    }
     const car = readLocal("volta.vehicle", {
       vehicle: "Tesla Model 3" as Vehicle,
       display: "Center display (parked)" as Display,
@@ -860,6 +870,7 @@ export default function Entertainment() {
                       YouTube subscription authorization.
                     </p>
                     <YouTubeSetup />
+                    <ProviderAccount provider="youtube" onPlay={play} />
                     <button
                       className="secondary"
                       onClick={() => navigate("YouTube")}
@@ -881,6 +892,7 @@ export default function Entertainment() {
                         {catalogBase ? "Connected" : "Optional"}
                       </span>
                     </div>
+                    <ProviderAccount provider="stremio" onPlay={play} />
                     <div className="field-row">
                       <label>
                         Legitimate addon manifest URL
@@ -907,8 +919,7 @@ export default function Entertainment() {
                     </p>
                     <p className="muted">
                       Addon catalogs and compatible authorized streams stay
-                      inside Volta. Stremio account library sync is not
-                      connected in this version.
+                      inside Volta. Stremio account linking is available above.
                     </p>
                   </div>
                 </>
@@ -1253,6 +1264,12 @@ export default function Entertainment() {
                     Add source
                   </button>
                 </div>
+              )}
+              {page === "YouTube" && (
+                <ProviderAccount provider="youtube" onPlay={play} />
+              )}
+              {page === "Stremio" && (
+                <ProviderAccount provider="stremio" onPlay={play} />
               )}
               {page === "Stremio" && (
                 <div className="stremio-banner">

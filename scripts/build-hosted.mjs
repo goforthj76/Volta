@@ -51,13 +51,16 @@ const shared = (await readFile("lib/youtube.mjs", "utf8")).replace(
   "export function createYouTubeSearch",
   "function createYouTubeSearch",
 );
+const connections = (await readFile("lib/connections.mjs", "utf8"))
+  .replaceAll("export async function", "async function")
+  .replace("export function createConnections", "function createConnections");
 const runtime = (await readFile("worker/index.mjs", "utf8")).replace(
-  /import \{\s*createYouTubeSearch\s*\} from [^;]+;/,
+  /import \{\s*(?:createYouTubeSearch|createConnections)\s*\} from [^;]+;/g,
   "",
 );
 await writeFile(
   "dist/server/index.js",
-  `globalThis.__VOLTA_ASSETS__=${JSON.stringify(assets)};\n${shared}\n${runtime}`,
+  `globalThis.__VOLTA_ASSETS__=${JSON.stringify(assets)};\n${shared}\n${connections}\n${runtime}`,
 );
 await copyFile(".openai/hosting.json", "dist/.openai/hosting.json");
 console.log(

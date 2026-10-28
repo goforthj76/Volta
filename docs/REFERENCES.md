@@ -17,3 +17,12 @@ The bundled Sintel trailer is from https://download.blender.org/durian/trailer/s
 ## Real vehicle studio
 
 The launcher now uses the actual Tesla Model 3 GLB by David_Holiday, CC BY 4.0. Source: https://sketchfab.com/3d-models/tesla-model-3-123c10f376ec4f18b93c73afc382808b. Distribution copy: https://sceneview.github.io/models/platforms/tesla_model_3.glb. The GLB embeds matching author, source and license metadata. Attribution is also served at `/models/CREDITS.txt` and linked from the scene. Changes are runtime paint/glass materials, normalization, studio lighting, shadows and camera controls. The model itself has not been reshaped to impersonate other Tesla models; those profiles are labeled as a Model 3 studio preview.
+
+## Account protocol references
+
+- Google official server-side YouTube OAuth / PKCE: https://developers.google.com/youtube/v3/guides/auth/server-side-web-apps
+- Google subscriptions and playlists: https://developers.google.com/youtube/v3/docs/subscriptions/list and https://developers.google.com/youtube/v3/docs/playlists/list
+- Stremio official API client reference: https://github.com/Stremio/stremio-api-client
+- Stremio core protocol types: https://github.com/Stremio/stremio-core/blob/development/src/types/api/request.rs and https://github.com/Stremio/stremio-core/blob/development/src/types/api/response.rs
+
+The Stremio library/device-link adapters are original HTTP protocol implementations based on these public interface definitions, not imports of GPL source. Device-link creation was verified against the official server (HTTP 200); an authenticated library fetch still requires the user's approval.
