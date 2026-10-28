@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "format": "prettier --write .",
-    "test:browser": "node scripts/browser-qa.mjs"
+    "test:browser": "node scripts/browser-qa.mjs",
+    "build:hosted": "node scripts/build-preview.mjs && node scripts/build-hosted.mjs"
   },
   "dependencies": {
     "next": "^15.5.10",

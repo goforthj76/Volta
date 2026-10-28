@@ -26,7 +26,6 @@ import {
   LogOut,
   Upload,
   Link2,
-  ExternalLink,
   Moon,
   Shield,
   MoreHorizontal,
@@ -52,6 +51,7 @@ import { configured, supabase } from "@/lib/supabase";
 import { vehicles, displays, Vehicle, Display } from "@/lib/vehicle";
 import Player from "./player";
 import Auth from "./auth";
+import YouTubeSetup from "./youtube-setup";
 import CockpitHero from "./cockpit-hero";
 const navigation = [
   { name: "Home", icon: Home },
@@ -323,10 +323,6 @@ export default function Entertainment() {
         return;
       }
       if (page === "YouTube") {
-        if (process.env.NEXT_PUBLIC_STATIC_PREVIEW === "1")
-          throw new Error(
-            "YouTube keyword search needs the full server deployment and API key. Paste a YouTube video link to watch now.",
-          );
         const res = await fetch(`/api/youtube?q=${encodeURIComponent(query)}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
@@ -1062,11 +1058,11 @@ export default function Entertainment() {
                       <span className="pill">Ready to play</span>
                     </div>
                     <p className="muted">
-                      Paste a video link in search to watch. Search requires a
-                      server-side YouTube Data API key. Google sign-in connects
-                      your Volta account; YouTube subscription authorization is
-                      a separate future integration.
+                      Watch and search with official YouTube APIs. Videos play
+                      here inside Volta. Google account sign-in is separate from
+                      YouTube subscription authorization.
                     </p>
+                    <YouTubeSetup />
                     <button
                       className="secondary"
                       onClick={() => navigate("YouTube")}
@@ -1112,15 +1108,11 @@ export default function Entertainment() {
                       Stremio account and cloud library remain in the official
                       Stremio app.
                     </p>
-                    <a
-                      className="text-link"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      href="https://web.stremio.com/"
-                    >
-                      Open official Stremio Web
-                      <ExternalLink size={15} />
-                    </a>
+                    <p className="muted">
+                      Addon catalogs and compatible authorized streams stay
+                      inside Volta. Stremio account library sync is not
+                      connected in this version.
+                    </p>
                   </div>
                 </>
               ) : settingTab === "Playback" ? (
@@ -1484,15 +1476,6 @@ export default function Entertainment() {
                     Connect addon
                     <Plus size={17} />
                   </button>
-                  <a
-                    className="icon-button"
-                    aria-label="Open official Stremio"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    href="https://web.stremio.com/"
-                  >
-                    <ExternalLink size={20} />
-                  </a>
                 </div>
               )}
               {page === "Stremio" && catalogs.length > 0 && (

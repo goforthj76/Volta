@@ -27,7 +27,7 @@ No IPTV subscription, channel feed, private credential or piracy addon ships wit
 
 Import this directory into Vercel with the Next.js preset, configure the variables above, and deploy. For production accounts or YouTube search use this complete server deployment. To test from a phone on a local network, run `npm run dev` and visit your development machine's LAN IP on port 3000 if firewall rules permit.
 
-The supplied Sites deployment is an interactive guest test build. `node scripts/build-preview.mjs` exports it to `out/`; it has real browser-local state and playback, but excludes the Next auth/API routes and explains that API-backed search needs the full deployment. Do not configure Supabase account sign-up on this static export; deploy the Next server first.
+The Sites deployment now includes a Worker server and the compiled Next client. `npm run build:hosted` exports the client and packages the shared official YouTube search handler with it. The same site serves `/api/youtube` and `/api/status`; configure `YOUTUBE_API_KEY` as a Sites server secret and deploy to activate keyword search. Supabase account callbacks still require the complete Next/Vercel deployment; the Worker does not pretend to provide those callbacks.
 
 ## Quality commands
 
@@ -60,3 +60,13 @@ YouTube playlists/subscriptions authorization and iframe progress events; native
 Tesdash-inspired graphite glass, per-service ambient lighting, a perspective/parallax vehicle design study with paint choices, and larger launch tiles. The SVG/CSS illustration is original, not a live car connection or exact rendering of every Tesla model. Reduced-motion preferences disable motion.
 
 `Enter cinema` now plays the bundled original Afterglow visual. The official CC BY Sintel trailer is bundled too, so these do not depend on external stream hosts. Playback requires an explicit tap; phones get native video controls. YouTube embeds offer an official-site fallback link. Images are bundled to avoid failed external artwork requests. A web app manifest supports adding Volta to the home screen; offline playback is not implemented.
+
+## YouTube owner setup
+
+1. Create a project at https://console.cloud.google.com/projectcreate.
+2. Enable https://console.cloud.google.com/apis/library/youtube.googleapis.com for that project.
+3. Create an API key under APIs & Services → Credentials. Restrict it to YouTube Data API v3. Browser referrer restrictions are unsuitable for this server-side key; application restrictions must match the chosen server infrastructure.
+4. Configure `YOUTUBE_API_KEY` as a secret in the existing Sites runtime (using its environment management tools), then deploy that environment revision. Never put it in `NEXT_PUBLIC_*`, source, browser storage, or a playlist.
+5. Open Settings → YouTube setup and refresh the connection status. Search and official embedded playback stay within Volta.
+
+Google does not require an OAuth client for public keyword search. Search consumes daily API quota; request caching reduces repeat use. The current in-memory cache and limiter are per Worker isolate, so use an account/edge distributed limiter before broader public access.

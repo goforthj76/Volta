@@ -11,7 +11,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Heart,
-  ExternalLink,
   LoaderCircle,
 } from "lucide-react";
 import type { Media } from "@/lib/media";
@@ -63,11 +62,11 @@ export default function Player({
       setWaiting(false);
       if (e instanceof DOMException && e.name === "NotAllowedError")
         setError(
-          "Your browser needs a tap to start. Try again, or use Open video directly below.",
+          "Your browser needs a tap to start. Tap Try again to start playback.",
         );
       else
         setError(
-          "This source could not start. Try opening the video directly.",
+          "This source could not start. Check the source and try again.",
         );
     }
   }
@@ -233,15 +232,10 @@ export default function Player({
       )}
       {media.youtubeId && (
         <div className="youtube-help">
-          <span>YouTube controls playback and availability.</span>
-          <a
-            href={`https://www.youtube.com/watch?v=${media.youtubeId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Open on YouTube
-            <ExternalLink size={15} />
-          </a>
+          <span>
+            YouTube playback stays inside Volta. Some videos are unavailable for
+            embedding; choose another result if the provider blocks playback.
+          </span>
         </div>
       )}
       {error && (
@@ -260,17 +254,6 @@ export default function Player({
           >
             Try again
           </button>
-          {media.url && (
-            <a
-              className="video-direct-link"
-              href={media.url}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Open video directly
-              <ExternalLink size={16} />
-            </a>
-          )}
         </div>
       )}
       {!media.youtubeId && !nativeControls && (
