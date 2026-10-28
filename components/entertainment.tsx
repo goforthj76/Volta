@@ -27,10 +27,8 @@ import {
   Upload,
   Link2,
   ExternalLink,
-  Globe,
   Moon,
   Shield,
-  Compass,
   MoreHorizontal,
 } from "lucide-react";
 import {
@@ -54,6 +52,7 @@ import { configured, supabase } from "@/lib/supabase";
 import { vehicles, displays, Vehicle, Display } from "@/lib/vehicle";
 import Player from "./player";
 import Auth from "./auth";
+import CockpitHero from "./cockpit-hero";
 const navigation = [
   { name: "Home", icon: Home },
   { name: "YouTube", icon: Youtube },
@@ -237,6 +236,8 @@ export default function Entertainment() {
     }));
   }
   function play(media: Media) {
+    const curated = featured.find((item) => item.id === media.id);
+    if (curated) media = { ...curated, progress: media.progress };
     if (media.source === "Live TV") {
       const current = channels.find((c) => c.id === media.id);
       if (current) media = current;
@@ -583,7 +584,7 @@ export default function Entertainment() {
               <MonitorPlay size={20} />
             </span>
             <div>
-              <strong>Made for the journey</strong>
+              <strong>Built for your Tesla</strong>
               <p>Passenger entertainment</p>
             </div>
             <span className="status-dot" />
@@ -615,7 +616,7 @@ export default function Entertainment() {
       <div className="main-shell">
         <header className="topbar">
           <div className="breadcrumb">
-            Your next great escape<span>/</span>
+            TESLA ENTERTAINMENT<span>/</span>
             <strong>{page}</strong>
           </div>
           <div className="top-actions">
@@ -706,73 +707,30 @@ export default function Entertainment() {
           )}
           {page === "Home" && results === null ? (
             <>
-              <section className="hero">
-                <img
-                  className="hero-image"
-                  src={artwork.hero}
-                  alt="Dramatic sunlit mountain peaks above a misty valley"
-                />
-                <div className="hero-shade" />
-                <div className="hero-content">
-                  <span className="hero-eyebrow">
-                    <span /> A LITTLE FURTHER FROM ORDINARY
-                  </span>
-                  <h1>
-                    The journey.
-                    <br />
-                    And everything
-                    <br />
-                    <em>in between.</em>
-                  </h1>
-                  <p>
-                    Your favorite worlds, all in one place.
-                    <br />
-                    Settle in. There’s something good ahead.
-                  </p>
-                  <div className="hero-buttons">
-                    <button
-                      className="primary"
-                      onClick={() => play(featured[0])}
-                    >
-                      <Play size={18} fill="currentColor" />
-                      Start watching
-                    </button>
-                    <button
-                      className="glass-button"
-                      onClick={() => {
-                        document
-                          .getElementById("discover")
-                          ?.scrollIntoView({ behavior: "smooth" });
-                      }}
-                    >
-                      <Compass size={19} />
-                      Explore
-                    </button>
-                  </div>
-                  <div className="hero-bottom">
-                    <span>
-                      <i /> A BETTER WAY TO PASS THE MILES
-                    </span>
-                    <div className="slide-dots">
-                      <b />
-                      <i />
-                      <i />
-                    </div>
-                  </div>
-                </div>
-                <div className="hero-location">
-                  <Globe size={13} />
-                  <span>Somewhere worth getting lost.</span>
-                </div>
-              </section>
-              <section className="quick-access">
+              <CockpitHero
+                vehicle={vehicle}
+                onPlay={() => play(featured[0])}
+                onExplore={() =>
+                  document
+                    .getElementById("app-launcher")
+                    ?.scrollIntoView({ behavior: "smooth" })
+                }
+              />
+              <div className="launcher-heading">
+                <span>YOUR ENTERTAINMENT, IN ONE PLACE</span>
+                <span>
+                  03 APPS <i /> ALWAYS WITH YOU
+                </span>
+              </div>
+              <section className="quick-access" id="app-launcher">
                 <button onClick={() => navigate("YouTube")}>
                   <span className="service-icon youtube-icon">
-                    <Youtube size={24} fill="currentColor" />
+                    <Youtube size={24} />
                   </span>
                   <span>
                     <strong>YouTube</strong>
-                    <small>A world of possibilities</small>
+                    <small>Find your next obsession</small>
+                    <span className="app-tile-label">WATCH & DISCOVER</span>
                   </span>
                   <ArrowUpRight size={20} />
                 </button>
@@ -782,7 +740,8 @@ export default function Entertainment() {
                   </span>
                   <span>
                     <strong>Live TV</strong>
-                    <small>Stay in the moment</small>
+                    <small>Your channels. In the moment.</small>
+                    <span className="app-tile-label">LIVE & ON DEMAND</span>
                   </span>
                   <ArrowUpRight size={20} />
                 </button>
@@ -792,7 +751,8 @@ export default function Entertainment() {
                   </span>
                   <span>
                     <strong>Stremio</strong>
-                    <small>Your library, along for the ride</small>
+                    <small>Your library, ready for the ride</small>
+                    <span className="app-tile-label">FILMS & SERIES</span>
                   </span>
                   <ArrowUpRight size={20} />
                 </button>
@@ -803,13 +763,13 @@ export default function Entertainment() {
                     <h2>
                       {continueItems.length
                         ? "Pick up where you left off"
-                        : "Your next watch starts here"}
+                        : "Settle in. Press play."}
                       <span className="heading-dot" />
                     </h2>
                     <p>
                       {continueItems.length
                         ? "Good stories deserve a little more time."
-                        : "A few good stories to take along for the ride."}
+                        : "Open films and an original visual escape. Ready to watch."}
                     </p>
                   </div>
                   <button
@@ -830,7 +790,7 @@ export default function Entertainment() {
                 <section id="discover" className="discover-section">
                   <div className="section-heading">
                     <div>
-                      <h2>Find your kind of escape</h2>
+                      <h2>Beyond the windshield</h2>
                       <p>
                         A change of scenery. A new perspective. Your next
                         obsession.
@@ -864,7 +824,10 @@ export default function Entertainment() {
                             title: "A little room to unwind.",
                             tag: "SLOW THINGS DOWN",
                             image: artwork.ocean,
-                            action: () => play(featured[1]),
+                            action: () =>
+                              play(
+                                featured.find((m) => m.source === "YouTube")!,
+                              ),
                           },
                         ]
                       : category === "Technology"
@@ -961,8 +924,8 @@ export default function Entertainment() {
                   <span className="mini-logo">
                     v<span>•</span>
                   </span>
-                  <p>Good company. Great entertainment. Every mile.</p>
-                  <span>DESIGNED FOR THE JOURNEY</span>
+                  <p>Your Tesla. A new dimension of entertainment.</p>
+                  <span>DESIGNED FOR YOUR DOWNTIME</span>
                 </div>
               </div>
             </>

@@ -23,3 +23,11 @@ Vercel serves the complete Next app; Supabase supplies auth/database. Sites host
 
 ## Further hardening before public launch
 Deploy shared rate limits (Upstash/edge WAF), validate real provider traffic and codec compatibility on target Tesla hardware, configure Supabase SMTP and auth rate limits, perform external accessibility/device testing and add observability without media URLs or credential logs. Local catalogs and large XMLTV sources should move to indexed workers for scale.
+
+## Revision 2 visual system and validated playback
+
+The cockpit uses layered SVG vehicle artwork with CSS perspective, pointer parallax, editable illustration paint, a smoked-glass launcher, per-service light and responsive mobile stacking. This is an independent visualization, not live vehicle telemetry. Reduced motion disables animation and tilt. All featured artwork is local.
+
+First-party playback now waits for an explicit user gesture and shows an accessible central Play button, buffering indicator and useful errors. Coarse-pointer devices get native video controls; desktop retains the shared control bar. Both bundled MP4s use browser-compatible H.264 with fast-start metadata. External Google Storage sample URLs were removed from the curated list. The bundled original and CC BY Sintel trailer work without provider keys; YouTube remains an official embed with an official-site escape link.
+
+Verified in headless Chromium at 1440×1000 and a touch-enabled 390×844 viewport: no horizontal overflow, native touch controls, Afterglow advancing past 2 seconds, Sintel trailer advancing past 1 second, and no uncaught browser exceptions. Physical iPhone and Tesla testing remains necessary. `npm run test:browser` repeats the smoke test with Chromium installed (`CHROMIUM_BIN` overrides its path); screenshots go to `QA_ARTIFACT_DIR` or `/tmp/volta-qa`. The smoke test owns local ports 3000 and 9222 while running.

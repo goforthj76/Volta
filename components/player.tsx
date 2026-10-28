@@ -11,6 +11,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Heart,
+  ExternalLink,
+  LoaderCircle,
 } from "lucide-react";
 import type { Media } from "@/lib/media";
 export default function Player({
@@ -43,6 +45,33 @@ export default function Player({
     [quality, setQuality] = useState(-1),
     [volume, setVolume] = useState(1);
   const lastSave = useRef(0);
+  const [nativeControls, setNativeControls] = useState(false);
+  const [waiting, setWaiting] = useState(false);
+  const [started, setStarted] = useState(false);
+  useEffect(() => {
+    setNativeControls(window.matchMedia("(pointer: coarse)").matches);
+  }, []);
+  async function startPlayback() {
+    const v = video.current;
+    if (!v) return;
+    setError("");
+    setWaiting(true);
+    try {
+      await v.play();
+      setStarted(true);
+    } catch (e) {
+      setWaiting(false);
+      if (e instanceof DOMException && e.name === "NotAllowedError")
+        setError(
+          "Your browser needs a tap to start. Try again, or use Open video directly below.",
+        );
+      else
+        setError(
+          "This source could not start. Try opening the video directly.",
+        );
+    }
+  }
+
   useEffect(() => {
     const el = video.current;
     if (!el || !media.url) return;
@@ -102,7 +131,7 @@ export default function Player({
       : "LIVE";
   return (
     <div
-      className="player-overlay"
+      className={`player-overlay ${media.youtubeId ? "youtube-player" : ""} ${nativeControls ? "native-player" : ""}`}
       ref={container}
       role="dialog"
       aria-modal="true"
@@ -136,24 +165,37 @@ export default function Player({
         <video
           className="video"
           ref={video}
-          autoPlay
+          preload="metadata"
+          poster={media.image}
           playsInline
-          controls={false}
+          controls={nativeControls}
+          onWaiting={() => setWaiting(true)}
+          onPlaying={() => {
+            setWaiting(false);
+            setStarted(true);
+            setPlaying(true);
+          }}
+          onCanPlay={() => setWaiting(false)}
+          onLoadedMetadata={() => {
+            const v = video.current;
+            if (v) setDuration(v.duration);
+          }}
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
           onClick={() => {
+            if (nativeControls) return;
             const v = video.current;
             if (v) {
-              if (v.paused)
-                v.play().catch(() => setError("Tap play to start playback."));
+              if (v.paused) void startPlayback();
               else v.pause();
             }
           }}
-          onError={() =>
+          onError={() => {
+            setWaiting(false);
             setError(
               "Unable to play this media. The source may be offline, blocked by CORS, or use an unsupported codec.",
-            )
-          }
+            );
+          }}
           onTimeUpdate={() => {
             const v = video.current;
             if (!v) return;
@@ -170,6 +212,38 @@ export default function Player({
           }}
         />
       )}
+      {!media.youtubeId && !playing && !error && !waiting && (
+        <button
+          className="big-play"
+          aria-label={`Start ${media.title}`}
+          onClick={() => void startPlayback()}
+        >
+          <span>
+            <Play size={32} fill="currentColor" />
+          </span>
+          <strong>{started ? "Resume watching" : "Ready when you are"}</strong>
+          <small>Tap to play · {media.title}</small>
+        </button>
+      )}
+      {!media.youtubeId && waiting && !error && (
+        <div className="player-loading" role="status">
+          <LoaderCircle className="spin" size={30} />
+          <span>Getting your screen ready…</span>
+        </div>
+      )}
+      {media.youtubeId && (
+        <div className="youtube-help">
+          <span>YouTube controls playback and availability.</span>
+          <a
+            href={`https://www.youtube.com/watch?v=${media.youtubeId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open on YouTube
+            <ExternalLink size={15} />
+          </a>
+        </div>
+      )}
       {error && (
         <div className="playback-error">
           <h2>Let’s get you back to watching.</h2>
@@ -178,14 +252,28 @@ export default function Player({
             className="primary"
             onClick={() => {
               setError("");
-              video.current?.load();
+              setWaiting(false);
+              if (hls.current) {
+                hls.current.startLoad();
+              } else video.current?.load();
             }}
           >
             Try again
           </button>
+          {media.url && (
+            <a
+              className="video-direct-link"
+              href={media.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open video directly
+              <ExternalLink size={16} />
+            </a>
+          )}
         </div>
       )}
-      {!media.youtubeId && (
+      {!media.youtubeId && !nativeControls && (
         <div className={`player-bottom ${!visible ? "hidden-controls" : ""}`}>
           <input
             aria-label="Playback position"
@@ -213,10 +301,7 @@ export default function Player({
               onClick={() => {
                 const v = video.current;
                 if (v) {
-                  if (v.paused)
-                    v.play().catch(() =>
-                      setError("Playback was blocked. Try again."),
-                    );
+                  if (v.paused) void startPlayback();
                   else v.pause();
                 }
               }}

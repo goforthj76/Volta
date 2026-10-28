@@ -3,7 +3,7 @@ export type Media = {
   title: string;
   subtitle: string;
   image: string;
-  source: "YouTube" | "Live TV" | "Stremio";
+  source: "YouTube" | "Live TV" | "Stremio" | "Volta";
   url?: string;
   youtubeId?: string;
   progress?: number;
@@ -11,25 +11,41 @@ export type Media = {
   group?: string;
   epgId?: string;
 };
-const photo = (id: string, w = 900) =>
-  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=85`;
 export const artwork = {
-  hero: photo("photo-1464822759023-fed622ff2c3b", 2200),
-  forest: photo("photo-1448375240586-882707db888b"),
-  road: photo("photo-1469474968028-56623f02e42e"),
-  space: photo("photo-1446776811953-b23d57bd21aa"),
-  ocean: photo("photo-1518837695005-2083093ee35b"),
-  city: photo("photo-1519608487953-e999c86e7455"),
-  mountain: photo("photo-1454496522488-7a8e488e8606"),
+  hero: "/art/hero.jpg",
+  forest: "/art/forest.jpg",
+  road: "/art/road.jpg",
+  space: "/art/space.jpg",
+  ocean: "/art/ocean.jpg",
+  city: "/art/city.jpg",
+  mountain: "/art/mountain.jpg",
 };
 export const featured: Media[] = [
+  {
+    id: "volta-afterglow",
+    title: "Afterglow",
+    subtitle: "Volta original · A visual escape",
+    image: "/art/afterglow.jpg",
+    source: "Volta",
+    url: "/media/afterglow.mp4",
+    duration: "16 sec",
+  },
+  {
+    id: "sintel-trailer-local",
+    title: "Sintel — Official trailer",
+    subtitle: "Blender Foundation · Open film",
+    image: "/art/sintel.jpg",
+    source: "Stremio",
+    url: "/media/sintel-trailer.mp4",
+    duration: "52 sec",
+  },
   {
     id: "big-buck-bunny",
     title: "Big Buck Bunny",
     subtitle: "Blender Foundation · Open movie",
     image: artwork.forest,
-    source: "Stremio",
-    url: "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+    source: "YouTube",
+    youtubeId: "aqz-KE-bpKQ",
     duration: "10 min",
   },
   {
@@ -40,24 +56,6 @@ export const featured: Media[] = [
     source: "YouTube",
     youtubeId: "jfKfPfyJRdk",
     duration: "LIVE",
-  },
-  {
-    id: "sintel",
-    title: "Sintel",
-    subtitle: "Blender Foundation · Adventure",
-    image: artwork.mountain,
-    source: "Stremio",
-    url: "https://storage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
-    duration: "15 min",
-  },
-  {
-    id: "elephants",
-    title: "Elephants Dream",
-    subtitle: "Blender Foundation · Open movie",
-    image: artwork.space,
-    source: "Stremio",
-    url: "https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-    duration: "11 min",
   },
 ];
 export function safeStream(value: string) {

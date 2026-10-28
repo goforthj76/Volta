@@ -54,3 +54,9 @@ Tests cover safe source validation, playlist parsing, timezone handling, vehicle
 ## Current limits / next work
 
 YouTube playlists/subscriptions authorization and iframe progress events; native text track/subtitle controls; a legitimate Stremio stream-resource resolver and supported account library bridge; persistent encrypted provider settings; QR pairing; virtualized guide grid; profile rename/delete; normalized profiles table integration; distributed rate limits and account security/device tests. Browsers and vehicles decide playback availability. No safety interlock bypass is implemented. Remote sample availability, API quotas, stream CORS, codecs and addon CORS remain provider-dependent.
+
+## Revision 2 — Tesla cockpit / playback repair
+
+Tesdash-inspired graphite glass, per-service ambient lighting, a perspective/parallax vehicle design study with paint choices, and larger launch tiles. The SVG/CSS illustration is original, not a live car connection or exact rendering of every Tesla model. Reduced-motion preferences disable motion.
+
+`Enter cinema` now plays the bundled original Afterglow visual. The official CC BY Sintel trailer is bundled too, so these do not depend on external stream hosts. Playback requires an explicit tap; phones get native video controls. YouTube embeds offer an official-site fallback link. Images are bundled to avoid failed external artwork requests. A web app manifest supports adding Volta to the home screen; offline playback is not implemented.

@@ -31,7 +31,10 @@ export function writeLocal(key: string, value: unknown) {
 export function sanitizeLibrary(library: Library): Library {
   const clean = (m: Media): Media => {
     const copy = { ...m };
-    if (m.source === "Live TV" || (m.url && new URL(m.url).search)) {
+    if (
+      m.source === "Live TV" ||
+      (m.url && new URL(m.url, "https://volta.invalid").search)
+    ) {
       delete copy.url;
     }
     return copy;

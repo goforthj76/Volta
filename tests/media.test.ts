@@ -58,3 +58,20 @@ test("provider credentials never persist in favorites/history", () => {
   });
   assert.equal(state.favorites[0].url, undefined);
 });
+
+test("bundled media survives library persistence without exposing provider tokens", () => {
+  const state = sanitizeLibrary({
+    favorites: [
+      {
+        id: "local",
+        title: "Afterglow",
+        subtitle: "Volta original",
+        image: "/art/afterglow.jpg",
+        source: "Volta",
+        url: "/media/afterglow.mp4",
+      },
+    ],
+    history: [],
+  });
+  assert.equal(state.favorites[0].url, "/media/afterglow.mp4");
+});
