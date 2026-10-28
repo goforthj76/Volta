@@ -90,3 +90,13 @@ YouTube login needs a Google OAuth client in addition to the existing search key
 5. Connect YouTube in Volta, approve Google consent, then load My playlists / My subscriptions. Playlist videos play in official embeds. Google watch history/personalized feed and Premium carryover are not promised by this API integration. Production consent verification may be required by Google.
 
 `CONNECTION_ENCRYPTION_KEY` is a 64-character hex encoding of 32 random bytes, stored only as a server secret. It is provisioned on the hosted site; other deployments must generate their own. Do not rotate it unless intentionally invalidating all browser connections. No provider tokens are stored in localStorage or returned to browser JavaScript. Disconnect forgets this browser connection; revoke the app grant in provider settings if needed.
+
+## Shared Stremio / Nuvio addon protocol
+
+Nuvio was evaluated against its official TV/web client and the independent browser client. The results are documented in `docs/NUVIO_COMPARISON.md`; no Nuvio application or account backend has been bundled or represented as a verified Tesla-native integration.
+
+Connected catalog titles can now request stream choices from the same user-provided addon. The adapter preserves query authorization, encodes resource IDs, filters unsafe URL schemes, removes torrent/external-player-only results, and offers web-compatible HTTPS or official YouTube playback inside Volta. Availability still depends on the user's authorized addon, browser codecs/CORS and vehicle display permissions. No addon or unauthorized content source ships with Volta.
+
+Known account blockers: Google OAuth login needs the owner's Web application client ID and secret. Stremio link creation works in development but currently returns 404 from the hosted runtime, so account linking is not verified live. This is separate from catalog/direct-media playback. See `docs/ARCHITECTURE.md` and the account setup panel.
+
+GitHub CI in `.github/workflows/ci.yml` runs lint, strict type checking, automated tests and the production build without production secrets. Publish source/media attribution files together; runtime credentials remain in hosting secrets and are excluded from Git.

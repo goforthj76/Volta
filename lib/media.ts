@@ -10,6 +10,7 @@ export type Media = {
   duration?: string;
   group?: string;
   epgId?: string;
+  mediaType?: string;
 };
 export const artwork = {
   hero: "/art/hero.jpg",

@@ -55,3 +55,9 @@ Stremio uses the device linking protocol declared in the official stremio-core `
 POST connection mutations require an exact same-origin Origin header. Cookies are bound to the platform's authenticated user identity when available, expire, never appear in response JSON, and are cleared on disconnect. Disconnect forgets the connection on this browser; users can revoke broader Google/Stremio access through the provider's account controls. API timeouts and generic errors avoid leaking credentials. Google grants and real Stremio account approval require the owner/user to complete provider-side steps and cannot be fully end-to-end tested without that approval.
 
 No canvas/WebCodecs blocking bypass from tesla-video-player is included. Compatibility with a moving vehicle is governed by its display/browser restrictions, regardless of which open-source architecture informed the client.
+
+## Addon stream choices and Nuvio decision
+
+`lib/addons.ts` is an original Stremio-protocol transport/normalization adapter. Catalog titles carry their declared media type; selecting a title without a stream requests the connected addon's `stream/type/id.json` resource. The user chooses among browser-ready HTTPS/YouTube results. Torrent `infoHash`, external-player-only results, insecure URLs and explicitly non-web-ready sources are excluded. This common protocol is also used by Nuvio; no Nuvio-specific account or native service is installed.
+
+The GitHub connector can access the owner's repositories but its createRepository operation was denied by GitHub. An explicit existing-repository branch choice or owner-created new repository is required before uploading; unrelated repository main branches must not be replaced. Runtime keys are not in source/history, and source upload must retain attribution files and secret exclusions.

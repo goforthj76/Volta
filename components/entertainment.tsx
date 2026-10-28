@@ -52,6 +52,7 @@ import Player from "./player";
 import Auth from "./auth";
 import YouTubeSetup from "./youtube-setup";
 import ProviderAccount from "./provider-account";
+import { addonResource, browserStreams, BrowserStream } from "@/lib/addons";
 import CabinLauncher from "./cabin-launcher";
 const navigation = [
   { name: "Home", icon: Home },
@@ -64,6 +65,11 @@ const navigation = [
 export default function Entertainment() {
   const [vehicle, setVehicle] = useState<Vehicle>("Tesla Model 3"),
     [display, setDisplay] = useState<Display>("Center display (parked)");
+  const [streamChoices, setStreamChoices] = useState<{
+    media: Media;
+    streams: BrowserStream[];
+  } | null>(null);
+  const [resolving, setResolving] = useState(false);
   const [page, setPage] = useState("Home"),
     [query, setQuery] = useState(""),
     [searchOpen, setSearchOpen] = useState(false),
@@ -235,6 +241,34 @@ export default function Entertainment() {
         : [media, ...old.favorites],
     }));
   }
+  async function resolveStreams(media: Media) {
+    if (resolving) return;
+    setResolving(true);
+    try {
+      const url = addonResource(addonUrl, "stream", media.mediaType!, media.id);
+      const r = await fetch(url, {
+        credentials: "omit",
+        referrerPolicy: "no-referrer",
+        signal: AbortSignal.timeout(12000),
+      });
+      if (!r.ok) throw new Error();
+      const d = await r.json();
+      const streams = browserStreams(d.streams);
+      if (!streams.length) {
+        notify(
+          "This addon returned no browser-ready authorized sources. Torrent and external-app sources do not play here.",
+        );
+        return;
+      }
+      setStreamChoices({ media, streams });
+    } catch {
+      notify(
+        "The addon could not provide streams. Check that it supports this title and allows browser access.",
+      );
+    } finally {
+      setResolving(false);
+    }
+  }
   function play(media: Media) {
     const curated = featured.find((item) => item.id === media.id);
     if (curated) media = { ...curated, progress: media.progress };
@@ -243,6 +277,10 @@ export default function Entertainment() {
       if (current) media = current;
     }
     if (!media.url && !media.youtubeId) {
+      if (media.source === "Stremio" && addonUrl && media.mediaType) {
+        void resolveStreams(media);
+        return;
+      }
       notify(
         "Connect your authorized source to play this title. Catalog metadata alone does not include a media stream.",
       );
@@ -409,7 +447,7 @@ export default function Entertainment() {
             typeof c.id === "string" && typeof c.type === "string",
         ),
       );
-      setCatalogBase(url.slice(0, -"/manifest.json".length));
+      setCatalogBase(url);
       notify(
         `Connected to ${data.name || "your addon"}. Select a catalog below.`,
       );
@@ -428,7 +466,7 @@ export default function Entertainment() {
     try {
       const c = catalogs[Number(value) - 1];
       const r = await fetch(
-        `${catalogBase}/catalog/${encodeURIComponent(c.type)}/${encodeURIComponent(c.id)}.json`,
+        addonResource(catalogBase, "catalog", c.type, c.id),
         { signal: AbortSignal.timeout(10000), credentials: "omit" },
       );
       if (!r.ok) throw new Error();
@@ -448,6 +486,7 @@ export default function Entertainment() {
               subtitle: m.description?.slice(0, 80) || c.type,
               image: safeStream(m.poster || "") || artwork.space,
               source: "Stremio",
+              mediaType: c.type,
             }),
           ),
       );
@@ -1472,6 +1511,51 @@ export default function Entertainment() {
           >
             <X size={18} />
           </button>
+        </div>
+      )}
+      {resolving && (
+        <div className="toast" role="status">
+          Finding browser-compatible sources…
+        </div>
+      )}
+      {streamChoices && (
+        <div className="modal-backdrop">
+          <section
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Choose a media source"
+          >
+            <button
+              className="icon-button modal-close"
+              aria-label="Close sources"
+              onClick={() => setStreamChoices(null)}
+            >
+              <X />
+            </button>
+            <span className="eyebrow">YOUR SOURCES, YOUR CHOICE</span>
+            <h2>{streamChoices.media.title}</h2>
+            <p>
+              Choose a source you are authorized to access. Only web-compatible
+              sources are shown.
+            </p>
+            <div className="source-choices">
+              {streamChoices.streams.map((stream, i) => (
+                <button
+                  className="secondary full-width"
+                  key={i}
+                  onClick={() => {
+                    const media = { ...streamChoices.media, ...stream };
+                    setStreamChoices(null);
+                    play(media);
+                  }}
+                >
+                  <Play size={17} />
+                  {stream.name}
+                </button>
+              ))}
+            </div>
+          </section>
         </div>
       )}
       {active && (
