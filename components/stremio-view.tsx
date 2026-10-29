@@ -221,20 +221,20 @@ export default function StremioView({
     if (full) {
       setSelectedMeta(full);
       if (full.type === "movie") {
-        void loadStreams(full.type, full.id);
+        void loadStreams(full.type, full.id, full);
       } else if (full.videos && full.videos.length > 0) {
         const ep1 = full.videos.find((v) => v.season === 1 && v.episode === 1) || full.videos[0];
         setActiveEpisodeId(ep1.id);
-        void loadStreams(full.type, ep1.id);
+        void loadStreams(full.type, ep1.id, full);
       }
     } else {
       if (item.type === "movie") {
-        void loadStreams(item.type, item.id);
+        void loadStreams(item.type, item.id, item);
       }
     }
   }
 
-  async function loadStreams(type: string, id: string) {
+  async function loadStreams(type: string, id: string, metaObj?: StremioMeta) {
     setStreamsLoading(true);
     setStreams([]);
     try {
@@ -251,15 +251,16 @@ export default function StremioView({
       let list = data.streams || [];
 
       // If Cinemeta has trailer streams, add it as a verified working option
-      if (selectedMeta) {
+      const activeItem = metaObj || selectedMeta;
+      if (activeItem) {
         const trailerYt =
-          selectedMeta.trailerStreams?.[0]?.ytId ||
-          selectedMeta.trailers?.find((t) => t.source)?.source;
-        if (trailerYt) {
+          activeItem.trailerStreams?.[0]?.ytId ||
+          activeItem.trailers?.find((t) => t.source)?.source;
+        if (trailerYt && !list.some((s) => s.ytId === trailerYt)) {
           list = [
             {
               name: "Cinema Trailer",
-              title: `${selectedMeta.name} — Official Trailer / Preview`,
+              title: `${activeItem.name} — Official Trailer / Preview`,
               ytId: trailerYt,
             },
             ...list,
