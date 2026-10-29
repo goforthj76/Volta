@@ -28,8 +28,10 @@ import { readLocal, writeLocal } from "@/lib/storage";
 
 export default function StremioView({
   onPlay,
+  initialItem,
 }: {
   onPlay: (media: Media) => void;
+  initialItem?: StremioMeta | null;
 }) {
   const [activeTab, setActiveTab] = useState<"top" | "movie" | "series" | "library">("top");
   const [query, setQuery] = useState("");
@@ -56,6 +58,11 @@ export default function StremioView({
   const [streams, setStreams] = useState<StremioStream[]>([]);
   const [streamsLoading, setStreamsLoading] = useState(false);
   const [activeEpisodeId, setActiveEpisodeId] = useState<string | null>(null);
+
+  // Open the exact movie selected on the dashboard; refresh sources after account addons load.
+  useEffect(() => {
+    if (initialItem) void openDetailModal(initialItem);
+  }, [initialItem, userAddons]);
 
   // Load saved credentials on mount
   useEffect(() => {
@@ -294,9 +301,8 @@ export default function StremioView({
       }
     }
 
-    const streamUrl =
-      stream.url ||
-      (stream.infoHash ? `http://127.0.0.1:11470/${stream.infoHash}/0` : undefined);
+    const streamUrl = stream.url?.startsWith("https://") ? stream.url : undefined;
+    if (!streamUrl && !stream.ytId) return;
 
     const media: Media = {
       id: `stremio-${selectedMeta.id}-${Date.now()}`,
@@ -433,7 +439,7 @@ export default function StremioView({
             <h1 className="hero-title">{featuredItem.name}</h1>
             <p className="hero-description">
               {featuredItem.description ||
-                "Watch high quality cinema and series on the road with Tesla passenger in-motion playback."}
+                "Explore movies and series from your connected Stremio sources."}
             </p>
             <div className="hero-actions">
               <button
@@ -441,7 +447,7 @@ export default function StremioView({
                 onClick={() => void openDetailModal(featuredItem)}
               >
                 <Play size={20} fill="currentColor" />
-                <span>Watch Now (In-Motion)</span>
+                <span>View sources</span>
               </button>
               <button
                 className="hero-info-btn"
@@ -626,7 +632,7 @@ export default function StremioView({
               {/* Stream Sources Section */}
               <div className="streams-section">
                 <div className="streams-header">
-                  <h4>Available Streams (Canvas In-Motion Ready)</h4>
+                  <h4>Available sources</h4>
                   {streamsLoading && <LoaderCircle className="spin" size={18} />}
                 </div>
 
@@ -688,7 +694,7 @@ export default function StremioView({
                                   : "rgba(245, 158, 11, 0.4)",
                             }}
                           >
-                            {isDirect ? "DIRECT (IN-MOTION)" : isYt ? "YOUTUBE" : "DEBRID / SERVER"}
+                            {isDirect ? "DIRECT" : isYt ? "YOUTUBE" : "DEBRID / SERVER"}
                           </span>
                         </button>
                       );
