@@ -50,11 +50,11 @@ async function handleStremio(request) {
     });
   }
   const url = new URL(request.url);
-  const action = url.searchParams.get("action");
   let body = {};
   try {
     body = await request.json();
   } catch {}
+  const action = url.searchParams.get("action") || body.action;
 
   if (action === "login") {
     const { email, password } = body;

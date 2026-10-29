@@ -25,8 +25,8 @@ type StremioRawStream = {
 export async function POST(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const action = searchParams.get("action");
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+    const action = searchParams.get("action") || (typeof body.action === "string" ? body.action : "");
 
     if (action === "login") {
       const email = typeof body.email === "string" ? body.email : "";
