@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Search,
   Library,
@@ -58,11 +58,6 @@ export default function StremioView({
   const [streams, setStreams] = useState<StremioStream[]>([]);
   const [streamsLoading, setStreamsLoading] = useState(false);
   const [activeEpisodeId, setActiveEpisodeId] = useState<string | null>(null);
-
-  // Open the exact movie selected on the dashboard; refresh sources after account addons load.
-  useEffect(() => {
-    if (initialItem) void openDetailModal(initialItem);
-  }, [initialItem, userAddons]);
 
   // Load saved credentials on mount
   useEffect(() => {
@@ -219,29 +214,7 @@ export default function StremioView({
     setLoginModalOpen(false);
   }
 
-  async function openDetailModal(item: StremioMeta) {
-    setSelectedMeta(item);
-    setStreams([]);
-    setActiveEpisodeId(null);
-
-    const full = await fetchCinemetaMeta(item.type, item.id);
-    if (full) {
-      setSelectedMeta(full);
-      if (full.type === "movie") {
-        void loadStreams(full.type, full.id, full);
-      } else if (full.videos && full.videos.length > 0) {
-        const ep1 = full.videos.find((v) => v.season === 1 && v.episode === 1) || full.videos[0];
-        setActiveEpisodeId(ep1.id);
-        void loadStreams(full.type, ep1.id, full);
-      }
-    } else {
-      if (item.type === "movie") {
-        void loadStreams(item.type, item.id, item);
-      }
-    }
-  }
-
-  async function loadStreams(type: string, id: string, metaObj?: StremioMeta) {
+  const loadStreams = useCallback(async (type: string, id: string, metaObj?: StremioMeta) => {
     setStreamsLoading(true);
     setStreams([]);
     try {
@@ -255,10 +228,10 @@ export default function StremioView({
         }),
       });
       const data = (await res.json()) as { streams?: StremioStream[] };
-      let list = data.streams || [];
+      let list = (data.streams || []).filter(stream => stream.url?.startsWith("https://") || (stream.ytId && /^[\w-]{11}$/.test(stream.ytId)));
 
       // If Cinemeta has trailer streams, add it as a verified working option
-      const activeItem = metaObj || selectedMeta;
+      const activeItem = metaObj;
       if (activeItem) {
         const trailerYt =
           activeItem.trailerStreams?.[0]?.ytId ||
@@ -281,12 +254,38 @@ export default function StremioView({
     } finally {
       setStreamsLoading(false);
     }
-  }
+  }, [userAddons]);
+
+  const openDetailModal = useCallback(async (item: StremioMeta) => {
+    setSelectedMeta(item);
+    setStreams([]);
+    setActiveEpisodeId(null);
+
+    const full = await fetchCinemetaMeta(item.type, item.id);
+    if (full) {
+      setSelectedMeta(full);
+      if (full.type === "movie") {
+        void loadStreams(full.type, full.id, full);
+      } else if (full.videos && full.videos.length > 0) {
+        const ep1 = full.videos.find((v) => v.season === 1 && v.episode === 1) || full.videos[0];
+        setActiveEpisodeId(ep1.id);
+        void loadStreams(full.type, ep1.id, full);
+      }
+    } else {
+      if (item.type === "movie") {
+        void loadStreams(item.type, item.id, item);
+      }
+    }
+  }, [loadStreams]);
+
+  useEffect(() => {
+    if (initialItem) void openDetailModal(initialItem);
+  }, [initialItem, openDetailModal]);
 
   function selectEpisode(epId: string) {
     setActiveEpisodeId(epId);
     if (selectedMeta) {
-      void loadStreams(selectedMeta.type, epId);
+      void loadStreams(selectedMeta.type, epId, selectedMeta);
     }
   }
 
