@@ -150,9 +150,13 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      const defaultAddons = [
+        "https://torrentio.strem.fun/manifest.json",
+        "https://v3-cinemeta.strem.io/manifest.json",
+      ];
       const addonList: string[] = Array.isArray(body.addons) && body.addons.length > 0
-        ? (body.addons as string[])
-        : ["https://v3-cinemeta.strem.io/manifest.json"];
+        ? Array.from(new Set([...(body.addons as string[]), ...defaultAddons]))
+        : defaultAddons;
 
       const streamPromises = addonList.map(async (transportUrl) => {
         try {
@@ -169,6 +173,7 @@ export async function POST(req: NextRequest) {
             title: s.title || s.name || "Playback Source",
             url: s.url,
             ytId: s.ytId,
+            infoHash: (s as Record<string, unknown>).infoHash as string | undefined,
             behaviorHints: s.behaviorHints,
           }));
         } catch {

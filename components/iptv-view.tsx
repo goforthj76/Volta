@@ -22,6 +22,34 @@ const categories: ChannelCategory[] = [
   "Music",
 ];
 
+function parseCustomM3U(input: string): Media[] {
+  const lines = input.replace(/^\uFEFF/, "").split(/\r?\n/);
+  const out: Media[] = [];
+  let info = "";
+  for (const line of lines) {
+    const s = line.trim();
+    if (s.startsWith("#EXTINF:")) info = s;
+    else if (s && !s.startsWith("#") && info) {
+      if (s.startsWith("http://") || s.startsWith("https://")) {
+        const name = info.slice(info.lastIndexOf(",") + 1).trim();
+        const attr = (key: string) => info.match(new RegExp(`${key}="([^"]*)"`))?.[1];
+        out.push({
+          id: `channel-${out.length}-${name}`,
+          title: name || "Unnamed Channel",
+          subtitle: attr("group-title") || "Live Television",
+          group: attr("group-title") || "Other",
+          epgId: attr("tvg-id"),
+          image: attr("tvg-logo") || "",
+          source: "Live TV",
+          url: s,
+        });
+      }
+      info = "";
+    }
+  }
+  return out;
+}
+
 export default function IptvView({
   onPlay,
 }: {
@@ -64,10 +92,19 @@ export default function IptvView({
 
     setLoading(true);
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
-      if (!res.ok) throw new Error("Could not fetch playlist. Verify URL and CORS.");
+      let res = await fetch(url, { signal: AbortSignal.timeout(10000) }).catch(() => null);
+      if (!res || !res.ok) {
+        // Retry through proxy if CORS or direct fetch fails
+        res = await fetch(`/api/proxy?url=${encodeURIComponent(url)}`, {
+          signal: AbortSignal.timeout(15000),
+        });
+      }
+      if (!res.ok) throw new Error("Could not fetch playlist. Verify URL and server accessibility.");
       const text = await res.text();
-      const parsed = parseM3U(text);
+      let parsed = parseCustomM3U(text);
+      if (parsed.length === 0) {
+        parsed = parseM3U(text);
+      }
       if (parsed.length === 0) throw new Error("No playable channels found in playlist.");
 
       const updated = [...parsed, ...defaultChannels];
@@ -96,7 +133,10 @@ export default function IptvView({
     reader.onload = (event) => {
       try {
         const text = event.target?.result as string;
-        const parsed = parseM3U(text);
+        let parsed = parseCustomM3U(text);
+        if (parsed.length === 0) {
+          parsed = parseM3U(text);
+        }
         if (parsed.length === 0) throw new Error("No channels found in file.");
         const updated = [...parsed, ...defaultChannels];
         setChannels(updated);

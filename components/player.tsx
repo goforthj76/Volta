@@ -61,7 +61,6 @@ export default function Player({
 
   const lastSave = useRef(0);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const frameCallbackId = useRef<number | null>(null);
   const animFrameId = useRef<number | null>(null);
 
   // Canvas render loop for Tesla in-motion playback
@@ -115,34 +114,28 @@ export default function Player({
           }
         }
 
-        ctx.drawImage(video, drawX, drawY, drawW, drawH);
+        try {
+          ctx.drawImage(video, drawX, drawY, drawW, drawH);
+        } catch {
+          // Ignore transient frame draw error during video initialization
+        }
       }
     }
 
-    if (video.requestVideoFrameCallback) {
-      frameCallbackId.current = video.requestVideoFrameCallback(() => {
-        renderCanvasFrame();
-      });
-    } else {
-      animFrameId.current = requestAnimationFrame(renderCanvasFrame);
-    }
+    animFrameId.current = requestAnimationFrame(renderCanvasFrame);
   }, [inMotionMode, aspectMode]);
 
   // Start canvas loop when playing
   useEffect(() => {
-    const currentVideo = videoRef.current;
-    if (playing && inMotionMode) {
+    if (inMotionMode) {
       renderCanvasFrame();
     }
     return () => {
-      if (currentVideo && frameCallbackId.current !== null && currentVideo.cancelVideoFrameCallback) {
-        currentVideo.cancelVideoFrameCallback(frameCallbackId.current);
-      }
       if (animFrameId.current !== null) {
         cancelAnimationFrame(animFrameId.current);
       }
     };
-  }, [playing, inMotionMode, renderCanvasFrame]);
+  }, [inMotionMode, renderCanvasFrame]);
 
   // Controls auto-hide
   const showControls = useCallback(() => {
@@ -169,12 +162,19 @@ export default function Player({
       await v.play();
       setPlaying(true);
       setWaiting(false);
-    } catch (e: unknown) {
-      setWaiting(false);
-      if (e instanceof DOMException && e.name === "NotAllowedError") {
-        setError("Your browser requires a tap to start audio & video.");
-      } else {
-        setError("Playback failed to start. Verify stream availability.");
+    } catch {
+      // 1. Browsers restrict unmuted autoplay without prior user interaction.
+      // Try playing muted automatically:
+      try {
+        v.muted = true;
+        setMuted(true);
+        await v.play();
+        setPlaying(true);
+        setWaiting(false);
+      } catch {
+        // 2. If browser requires explicit tap, show big center play button without error modal
+        setWaiting(false);
+        setPlaying(false);
       }
     }
   }
@@ -183,7 +183,25 @@ export default function Player({
     const v = videoRef.current;
     if (!v) return;
     if (v.paused) {
-      void startPlayback();
+      setError("");
+      setWaiting(true);
+      v.play()
+        .then(() => {
+          setPlaying(true);
+          setWaiting(false);
+        })
+        .catch(() => {
+          v.muted = true;
+          setMuted(true);
+          return v.play().then(() => {
+            setPlaying(true);
+            setWaiting(false);
+          });
+        })
+        .catch(() => {
+          setWaiting(false);
+          setError("Playback could not start. Verify stream connectivity.");
+        });
     } else {
       v.pause();
       setPlaying(false);
@@ -238,9 +256,18 @@ export default function Player({
   // Video / HLS source setup
   useEffect(() => {
     const el = videoRef.current;
-    if (!el || !media.url || (useOfficialEmbed && media.youtubeId)) return;
+    if (!el || (useOfficialEmbed && media.youtubeId)) return;
+
+    if (!media.url) {
+      if (!media.youtubeId) {
+        setError("No direct video stream found for this title.");
+      }
+      return;
+    }
 
     setError("");
+    setWaiting(true);
+
     const resume = () => {
       if (media.progress && Number.isFinite(el.duration)) {
         el.currentTime = Math.min(media.progress, el.duration - 1);
@@ -248,49 +275,63 @@ export default function Player({
     };
     el.addEventListener("loadedmetadata", resume);
 
-    // Format target URL through proxy if remote stream to prevent CORS & mixed-content blocks
     const targetUrl = media.url;
-    const isRemote = targetUrl.startsWith("http://") || targetUrl.startsWith("https://");
-    const proxiedUrl =
-      isRemote && !targetUrl.includes("/api/proxy?url=")
-        ? `/api/proxy?url=${encodeURIComponent(targetUrl)}`
-        : targetUrl;
+    const isM3U8 =
+      /\.m3u8(?:\?|$)/i.test(targetUrl) ||
+      media.source === "Live TV" ||
+      targetUrl.includes("/live/") ||
+      targetUrl.includes("manifest");
 
-    if (
-      (/\.m3u8(?:\?|$)/i.test(targetUrl) || targetUrl.includes("/api/proxy") || media.source === "Live TV") &&
-      !el.canPlayType("application/vnd.apple.mpegurl") &&
-      Hls.isSupported()
-    ) {
+    if (isM3U8 && !el.canPlayType("application/vnd.apple.mpegurl") && Hls.isSupported()) {
       const engine = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
-        xhrSetup: (xhr) => {
-          xhr.withCredentials = false;
-        },
+        backBufferLength: 60,
       });
       hlsRef.current = engine;
-      engine.loadSource(proxiedUrl);
-      engine.attachMedia(el);
+
+      let attemptedProxy = false;
+
       engine.on(Hls.Events.MANIFEST_PARSED, () => {
         void startPlayback();
       });
+
       engine.on(Hls.Events.ERROR, (_, data) => {
         if (data.fatal) {
-          if (proxiedUrl !== targetUrl) {
-            console.warn("Proxy load issue, attempting direct source fallback...", data);
-            engine.loadSource(targetUrl);
+          if (!attemptedProxy && (targetUrl.startsWith("http://") || targetUrl.startsWith("https://"))) {
+            attemptedProxy = true;
+            console.warn("Retrying HLS through CORS proxy...", data.type);
+            const proxiedUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+            engine.loadSource(proxiedUrl);
           } else {
+            setWaiting(false);
             setError("Stream could not play. Check CORS headers or source connectivity.");
           }
         }
       });
+
+      // Try direct stream first (direct CDN), auto-fallback to CORS proxy on network error
+      engine.loadSource(targetUrl);
+      engine.attachMedia(el);
     } else {
-      el.src = proxiedUrl;
+      el.src = targetUrl;
+      let attemptedDirectFallback = false;
+      el.onerror = () => {
+        if (!attemptedDirectFallback && targetUrl.startsWith("http://")) {
+          attemptedDirectFallback = true;
+          el.src = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+          void startPlayback();
+        } else {
+          setWaiting(false);
+          setError("Unable to play this stream. Check provider format or network access.");
+        }
+      };
       void startPlayback();
     }
 
     return () => {
       el.removeEventListener("loadedmetadata", resume);
+      el.onerror = null;
       hlsRef.current?.destroy();
       hlsRef.current = null;
     };
@@ -472,6 +513,20 @@ export default function Player({
             <div className="center-play-button">
               <Play size={44} fill="currentColor" />
             </div>
+          )}
+
+          {/* Muted Autoplay Banner Pill */}
+          {playing && muted && !useOfficialEmbed && (
+            <button
+              className="unmute-banner-pill"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleMute();
+              }}
+            >
+              <VolumeX size={16} />
+              <span>Audio Muted · Tap to Unmute</span>
+            </button>
           )}
 
           {/* Loading Indicator */}

@@ -114,7 +114,13 @@ async function handleStremio(request) {
 
   if (action === "streams") {
     const { addons, type, id } = body;
-    const addonList = Array.isArray(addons) && addons.length > 0 ? addons : ["https://v3-cinemeta.strem.io/manifest.json"];
+    const defaultAddons = [
+      "https://torrentio.strem.fun/manifest.json",
+      "https://v3-cinemeta.strem.io/manifest.json",
+    ];
+    const addonList = Array.isArray(addons) && addons.length > 0
+      ? Array.from(new Set([...addons, ...defaultAddons]))
+      : defaultAddons;
     const streamPromises = addonList.map(async (transportUrl) => {
       try {
         const base = transportUrl.replace(/\/manifest\.json$/, "");
@@ -127,6 +133,7 @@ async function handleStremio(request) {
           title: s.title || s.name || "Playback Source",
           url: s.url,
           ytId: s.ytId,
+          infoHash: s.infoHash,
           behaviorHints: s.behaviorHints,
         }));
       } catch {

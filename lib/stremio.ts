@@ -27,6 +27,8 @@ export type StremioMeta = {
   runtime?: string;
   cast?: string[];
   videos?: StremioVideo[];
+  trailerStreams?: Array<{ title?: string; ytId?: string }>;
+  trailers?: Array<{ source: string; type: string }>;
 };
 
 export type StremioStream = {
@@ -34,6 +36,7 @@ export type StremioStream = {
   title?: string;
   url?: string;
   ytId?: string;
+  infoHash?: string;
   behaviorHints?: Record<string, unknown>;
 };
 

@@ -31,16 +31,22 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const upstreamHeaders: Record<string, string> = {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      Referer: parsed.origin + "/",
+    };
+    const range = req.headers.get("range");
+    if (range) {
+      upstreamHeaders["Range"] = range;
+    }
+
     const upstreamRes = await fetch(parsed.href, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Referer: parsed.origin + "/",
-      },
+      headers: upstreamHeaders,
       signal: AbortSignal.timeout(15000),
     });
 
-    if (!upstreamRes.ok) {
+    if (!upstreamRes.ok && upstreamRes.status !== 206) {
       return NextResponse.json(
         { error: `Upstream returned status ${upstreamRes.status}` },
         {
@@ -91,15 +97,26 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // For video chunks (.ts, .m4s, etc.), stream directly with CORS headers
+    // For video chunks (.ts, .m4s, .mp4, etc.), stream with Range and CORS headers
     const blob = await upstreamRes.blob();
+    const outHeaders: Record<string, string> = {
+      "Content-Type": contentType || "video/mp2t",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "*",
+      "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
+      "Accept-Ranges": "bytes",
+      "Cache-Control": "public, max-age=3600",
+    };
+    if (upstreamRes.headers.get("content-range")) {
+      outHeaders["Content-Range"] = upstreamRes.headers.get("content-range")!;
+    }
+    if (upstreamRes.headers.get("content-length")) {
+      outHeaders["Content-Length"] = upstreamRes.headers.get("content-length")!;
+    }
+
     return new NextResponse(blob, {
-      headers: {
-        "Content-Type": contentType || "video/mp2t",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "*",
-        "Cache-Control": "public, max-age=3600",
-      },
+      status: upstreamRes.status,
+      headers: outHeaders,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Proxy fetch error";

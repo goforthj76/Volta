@@ -248,7 +248,26 @@ export default function StremioView({
         }),
       });
       const data = (await res.json()) as { streams?: StremioStream[] };
-      setStreams(data.streams || []);
+      let list = data.streams || [];
+
+      // If Cinemeta has trailer streams, add it as a verified working option
+      if (selectedMeta) {
+        const trailerYt =
+          selectedMeta.trailerStreams?.[0]?.ytId ||
+          selectedMeta.trailers?.find((t) => t.source)?.source;
+        if (trailerYt) {
+          list = [
+            {
+              name: "Cinema Trailer",
+              title: `${selectedMeta.name} — Official Trailer / Preview`,
+              ytId: trailerYt,
+            },
+            ...list,
+          ];
+        }
+      }
+
+      setStreams(list);
     } catch {
       setStreams([]);
     } finally {
@@ -274,13 +293,17 @@ export default function StremioView({
       }
     }
 
+    const streamUrl =
+      stream.url ||
+      (stream.infoHash ? `http://127.0.0.1:11470/${stream.infoHash}/0` : undefined);
+
     const media: Media = {
       id: `stremio-${selectedMeta.id}-${Date.now()}`,
       title,
       subtitle: stream.title || stream.name || "Stremio Stream",
       source: "Stremio",
       image: selectedMeta.background || selectedMeta.poster || "/art/space.jpg",
-      url: stream.url,
+      url: streamUrl,
       youtubeId: stream.ytId,
     };
 
@@ -634,20 +657,41 @@ export default function StremioView({
                   </div>
                 ) : (
                   <div className="streams-list">
-                    {streams.map((stream, idx) => (
-                      <button
-                        key={idx}
-                        className="stream-item-btn"
-                        onClick={() => playStream(stream)}
-                      >
-                        <Play size={18} className="stream-play-icon" />
-                        <div className="stream-info-text">
-                          <span className="stream-title">{stream.title || stream.name || "Direct Stream"}</span>
-                          <span className="stream-name-tag">{stream.name || "Web Source"}</span>
-                        </div>
-                        <span className="stream-badge">PLAY IN TESLA</span>
-                      </button>
-                    ))}
+                    {streams.map((stream, idx) => {
+                      const isDirect = Boolean(stream.url);
+                      const isYt = Boolean(stream.ytId);
+                      return (
+                        <button
+                          key={idx}
+                          className="stream-item-btn"
+                          onClick={() => playStream(stream)}
+                        >
+                          <Play size={18} className="stream-play-icon" />
+                          <div className="stream-info-text">
+                            <span className="stream-title">{stream.title || stream.name || "Direct Stream"}</span>
+                            <span className="stream-name-tag">{stream.name || "Web Source"}</span>
+                          </div>
+                          <span
+                            className="stream-badge"
+                            style={{
+                              background: isDirect
+                                ? "rgba(34, 197, 94, 0.2)"
+                                : isYt
+                                  ? "rgba(239, 68, 68, 0.2)"
+                                  : "rgba(245, 158, 11, 0.2)",
+                              color: isDirect ? "#4ade80" : isYt ? "#f87171" : "#fbbf24",
+                              borderColor: isDirect
+                                ? "rgba(34, 197, 94, 0.4)"
+                                : isYt
+                                  ? "rgba(239, 68, 68, 0.4)"
+                                  : "rgba(245, 158, 11, 0.4)",
+                            }}
+                          >
+                            {isDirect ? "DIRECT (IN-MOTION)" : isYt ? "YOUTUBE" : "DEBRID / SERVER"}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
