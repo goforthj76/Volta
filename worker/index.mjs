@@ -1,5 +1,5 @@
 import { createConnections } from "../lib/connections.mjs";
-import { createYouTubeSearch } from "../lib/youtube.mjs";
+import { createYouTubeSearch, scrapeYouTube } from "../lib/youtube.mjs";
 // The build appends the Next client assets and the shared official search handler.
 const search = createYouTubeSearch();
 const connections = createConnections();
@@ -68,10 +68,10 @@ async function handleStremio(request) {
     });
     const data = await res.json();
     if (data.error) {
-      return Response.json({ error: data.error.message || "Failed to log in to Stremio." }, { status: 401, headers: security });
+      return Response.json({ error: data.error.message || "Failed to log in to Stremio. Please verify your credentials." }, { status: 401, headers: security });
     }
     const user = data.result?.user;
-    const authKey = data.result?.auth?.key;
+    const authKey = data.result?.authKey || data.result?.auth?.key || data.result?.key;
     return Response.json({
       success: true,
       user: { id: user?._id || "", email: user?.email || email },
@@ -140,6 +140,84 @@ async function handleStremio(request) {
   return Response.json({ error: "Unknown action" }, { status: 404, headers: security });
 }
 
+async function handleProxy(request) {
+  if (request.method === "OPTIONS") {
+    return new Response(null, {
+      status: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+        "Access-Control-Allow-Headers": "*",
+      },
+    });
+  }
+  const url = new URL(request.url);
+  const targetUrl = url.searchParams.get("url");
+  if (!targetUrl) return new Response(JSON.stringify({ error: "Missing url" }), { status: 400 });
+  try {
+    const parsed = new URL(targetUrl);
+    const upstreamRes = await fetch(parsed.href, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Referer: parsed.origin + "/",
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!upstreamRes.ok) {
+      return new Response(JSON.stringify({ error: `Upstream error ${upstreamRes.status}` }), {
+        status: upstreamRes.status,
+        headers: { "Access-Control-Allow-Origin": "*" },
+      });
+    }
+    const contentType = upstreamRes.headers.get("content-type") || "";
+    if (
+      contentType.includes("mpegurl") ||
+      contentType.includes("application/x-mpegURL") ||
+      parsed.pathname.endsWith(".m3u8")
+    ) {
+      const manifestText = await upstreamRes.text();
+      const baseUrl = new URL(".", parsed.href).href;
+      const lines = manifestText.split(/\r?\n/).map((line) => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) {
+          if (trimmed.includes('URI="')) {
+            return trimmed.replace(/URI="([^"]+)"/g, (_, uri) => {
+              const abs = new URL(uri, baseUrl).href;
+              return `URI="/api/proxy?url=${encodeURIComponent(abs)}"`;
+            });
+          }
+          return line;
+        }
+        const abs = new URL(trimmed, baseUrl).href;
+        return `/api/proxy?url=${encodeURIComponent(abs)}`;
+      });
+      return new Response(lines.join("\n"), {
+        headers: {
+          "Content-Type": "application/vnd.apple.mpegurl",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "*",
+          "Cache-Control": "no-cache",
+        },
+      });
+    }
+    const body = await upstreamRes.arrayBuffer();
+    return new Response(body, {
+      headers: {
+        "Content-Type": contentType || "video/mp2t",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "*",
+        "Cache-Control": "public, max-age=3600",
+      },
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: String(err) }), {
+      status: 502,
+      headers: { "Access-Control-Allow-Origin": "*" },
+    });
+  }
+}
+
 export function createWorker(assets) {
   return {
     async fetch(request, env = {}) {
@@ -148,7 +226,24 @@ export function createWorker(assets) {
         return connections(request, env);
       if (url.pathname === "/api/stremio")
         return handleStremio(request);
-      if (url.pathname === "/api/youtube") return search(request, env);
+      if (url.pathname === "/api/proxy")
+        return handleProxy(request);
+      if (url.pathname === "/api/youtube") {
+        const res = await search(request, env);
+        if (res.status === 503 || res.status === 502) {
+          const q = url.searchParams.get("q")?.trim();
+          if (q) {
+            const items = await scrapeYouTube(q);
+            if (items.length > 0) {
+              return Response.json(
+                { items },
+                { headers: { ...security, "Cache-Control": "no-store" } },
+              );
+            }
+          }
+        }
+        return res;
+      }
       if (url.pathname === "/api/status")
         return Response.json(
           {

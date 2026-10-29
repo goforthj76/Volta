@@ -81,7 +81,7 @@ export default function Entertainment() {
     [query, setQuery] = useState(""),
     [searchOpen, setSearchOpen] = useState(false),
     [profiles, setProfiles] = useState<Profile[]>(defaultProfiles),
-    [profileId, setProfileId] = useState("alex"),
+    [profileId, setProfileId] = useState(""),
     [profileOpen, setProfileOpen] = useState(false),
     [profileName, setProfileName] = useState(""),
     [library, setLibrary] = useState<LibraryState>({
@@ -113,7 +113,14 @@ export default function Entertainment() {
     [setupOpen, setSetupOpen] = useState(false),
     [manualStream, setManualStream] = useState(""),
     [userId, setUserId] = useState("");
-  const profile = profiles.find((p) => p.id === profileId) || profiles[0];
+  const profile =
+    profiles.find((p) => p.id === profileId) ||
+    profiles[0] || {
+      id: "passenger",
+      name: "Passenger",
+      color: "#e8edf1",
+      autoplay: true,
+    };
   const fileInput = useRef<HTMLInputElement>(null);
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hydrated = useRef(false);
@@ -135,14 +142,30 @@ export default function Entertainment() {
     });
     setVehicle(car.vehicle);
     setDisplay(car.display);
-    setProfiles(readLocal("volta.profiles", defaultProfiles));
-    const id = readLocal("volta.profile", "alex");
+    const activeU = getActiveUser();
+    let loadedProfiles = readLocal<Profile[]>("volta.profiles", defaultProfiles);
+    if (loadedProfiles.some((p) => p.id === "alex" || p.id === "jordan")) {
+      loadedProfiles = [];
+    }
+    if (activeU && loadedProfiles.length === 0) {
+      loadedProfiles = [
+        {
+          id: activeU.id,
+          name: activeU.name,
+          color: "#e8edf1",
+          autoplay: true,
+        },
+      ];
+      writeLocal("volta.profiles", loadedProfiles);
+      writeLocal("volta.profile", activeU.id);
+    }
+    setProfiles(loadedProfiles);
+    const id = readLocal("volta.profile", activeU?.id || "passenger");
     setProfileId(id);
     setLibrary(
       readLocal(`volta.library.guest.${id}`, { favorites: [], history: [] }),
     );
     setReady(true);
-    const activeU = getActiveUser();
     if (activeU) {
       setAccount(activeU.email);
     }
@@ -1643,7 +1666,12 @@ export default function Entertainment() {
           close={() => setAuthOpen(false)}
           onSignedIn={(user) => {
             setAccount(user.email);
-            notify(`Welcome back, ${user.name}! Your account is active.`);
+            setVehicle(user.vehicle);
+            setDisplay(user.display);
+            const freshProfiles = readLocal<Profile[]>("volta.profiles", []);
+            setProfiles(freshProfiles);
+            setProfileId(user.id);
+            notify(`Welcome, ${user.name}! Your account is active.`);
           }}
         />
       )}

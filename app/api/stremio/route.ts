@@ -47,20 +47,22 @@ export async function POST(req: NextRequest) {
       const data = (await res.json()) as {
         error?: { message?: string };
         result?: {
+          authKey?: string;
           user?: { _id?: string; email?: string };
           auth?: { key?: string };
+          key?: string;
         };
       };
 
       if (data.error) {
         return NextResponse.json(
-          { error: data.error.message || "Failed to log in to Stremio." },
+          { error: data.error.message || "Failed to log in to Stremio. Please verify your credentials." },
           { status: 401 },
         );
       }
 
       const user = data.result?.user;
-      const authKey = data.result?.auth?.key;
+      const authKey = data.result?.authKey || data.result?.auth?.key || data.result?.key;
 
       if (!authKey) {
         return NextResponse.json(

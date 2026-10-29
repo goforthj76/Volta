@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { vehicles, displays, Vehicle, Display } from "@/lib/vehicle";
+import { writeLocal, Profile } from "@/lib/storage";
 import { X, ArrowRight, ShieldCheck, KeyRound, Crown } from "lucide-react";
 import {
   MASTER_ADMIN_EMAIL,
@@ -10,6 +11,15 @@ import {
   authenticateAccount,
   UserAccount,
 } from "@/lib/accounts";
+
+const paintOptions = [
+  { name: "Pearl White", hex: "#e8edf1", index: 0 },
+  { name: "Stealth Grey", hex: "#454e5b", index: 1 },
+  { name: "Ultra Red", hex: "#c51c32", index: 2 },
+  { name: "Deep Blue", hex: "#173461", index: 0 },
+  { name: "Solid Black", hex: "#0a0c10", index: 1 },
+  { name: "Quicksilver", hex: "#8e97a4", index: 0 },
+];
 
 export default function Auth({
   close,
@@ -20,6 +30,7 @@ export default function Auth({
 }) {
   const [vehicle, setVehicle] = useState<Vehicle>("Tesla Model 3");
   const [display, setDisplay] = useState<Display>("Center display (parked)");
+  const [paint, setPaint] = useState(0);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -54,6 +65,21 @@ export default function Auth({
           return;
         }
 
+        // Save vehicle preferences, paint studio color, and fresh single user profile
+        writeLocal("volta.vehicle", { vehicle, display });
+        writeLocal("volta.paint", paintOptions[paint]?.index ?? 0);
+
+        if (res.account) {
+          const userProfile: Profile = {
+            id: res.account.id,
+            name: res.account.name,
+            color: paintOptions[paint]?.hex || "#e8edf1",
+            autoplay: true,
+          };
+          writeLocal("volta.profiles", [userProfile]);
+          writeLocal("volta.profile", res.account.id);
+        }
+
         setSuccessMsg(
           isAdminEmail
             ? "Welcome, Owner! Secret Menu and all vehicle features unlocked."
@@ -70,6 +96,13 @@ export default function Auth({
           setMessage(res.error || "Invalid email or password.");
           setBusy(false);
           return;
+        }
+
+        if (res.account) {
+          writeLocal("volta.vehicle", {
+            vehicle: res.account.vehicle,
+            display: res.account.display,
+          });
         }
 
         setSuccessMsg(`Welcome back, ${res.account?.name || email}!`);
@@ -210,6 +243,53 @@ export default function Auth({
                     <option key={v} value={v}>{v}</option>
                   ))}
                 </select>
+              </div>
+
+              <div className="form-group">
+                <label>Vehicle Paint Finish</label>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, 1fr)",
+                    gap: "8px",
+                    marginTop: "6px",
+                  }}
+                >
+                  {paintOptions.map((opt, idx) => (
+                    <button
+                      key={opt.name}
+                      type="button"
+                      onClick={() => setPaint(idx)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "7px 10px",
+                        borderRadius: "8px",
+                        border: paint === idx ? "2px solid #38bdf8" : "1px solid rgba(255,255,255,0.12)",
+                        background: paint === idx ? "rgba(56, 189, 248, 0.18)" : "rgba(255,255,255,0.04)",
+                        color: "#fff",
+                        cursor: "pointer",
+                        fontSize: "11px",
+                        fontWeight: paint === idx ? 600 : 400,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: "12px",
+                          height: "12px",
+                          borderRadius: "50%",
+                          background: opt.hex,
+                          border: "1px solid rgba(255,255,255,0.4)",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {opt.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="form-group">

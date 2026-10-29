@@ -6,10 +6,7 @@ export type Profile = {
   autoplay: boolean;
 };
 export type Library = { favorites: Media[]; history: Media[] };
-export const defaultProfiles: Profile[] = [
-  { id: "alex", name: "Alex", color: "#c9fa75", autoplay: true },
-  { id: "jordan", name: "Jordan", color: "#a99aee", autoplay: false },
-];
+export const defaultProfiles: Profile[] = [];
 export function readLocal<T>(key: string, fallback: T): T {
   try {
     const value = localStorage.getItem(key);

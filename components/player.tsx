@@ -238,7 +238,7 @@ export default function Player({
   // Video / HLS source setup
   useEffect(() => {
     const el = videoRef.current;
-    if (!el || !media.url || useOfficialEmbed) return;
+    if (!el || !media.url || (useOfficialEmbed && media.youtubeId)) return;
 
     setError("");
     const resume = () => {
@@ -248,28 +248,44 @@ export default function Player({
     };
     el.addEventListener("loadedmetadata", resume);
 
+    // Format target URL through proxy if remote stream to prevent CORS & mixed-content blocks
+    const targetUrl = media.url;
+    const isRemote = targetUrl.startsWith("http://") || targetUrl.startsWith("https://");
+    const proxiedUrl =
+      isRemote && !targetUrl.includes("/api/proxy?url=")
+        ? `/api/proxy?url=${encodeURIComponent(targetUrl)}`
+        : targetUrl;
+
     if (
-      /\.m3u8(?:\?|$)/i.test(media.url) &&
+      (/\.m3u8(?:\?|$)/i.test(targetUrl) || targetUrl.includes("/api/proxy") || media.source === "Live TV") &&
       !el.canPlayType("application/vnd.apple.mpegurl") &&
       Hls.isSupported()
     ) {
       const engine = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
+        xhrSetup: (xhr) => {
+          xhr.withCredentials = false;
+        },
       });
       hlsRef.current = engine;
-      engine.loadSource(media.url);
+      engine.loadSource(proxiedUrl);
       engine.attachMedia(el);
       engine.on(Hls.Events.MANIFEST_PARSED, () => {
         void startPlayback();
       });
       engine.on(Hls.Events.ERROR, (_, data) => {
         if (data.fatal) {
-          setError("Stream could not play. Check CORS headers or source connectivity.");
+          if (proxiedUrl !== targetUrl) {
+            console.warn("Proxy load issue, attempting direct source fallback...", data);
+            engine.loadSource(targetUrl);
+          } else {
+            setError("Stream could not play. Check CORS headers or source connectivity.");
+          }
         }
       });
     } else {
-      el.src = media.url;
+      el.src = proxiedUrl;
       void startPlayback();
     }
 
@@ -354,7 +370,7 @@ export default function Player({
             </button>
           )}
 
-          {media.youtubeId && (
+          {media.youtubeId && media.url && (
             <button
               className="mode-toggle-btn"
               onClick={() => {
@@ -390,9 +406,10 @@ export default function Player({
           <iframe
             className="video"
             title={media.title}
-            src={`https://www.youtube-nocookie.com/embed/${media.youtubeId}?autoplay=1&rel=0&playsinline=1`}
-            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            src={`https://www.youtube.com/embed/${media.youtubeId}?autoplay=1&playsinline=1&enablejsapi=1&origin=${typeof window !== "undefined" ? encodeURIComponent(window.location.origin) : ""}`}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
             allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
           />
           <div className="youtube-hint-banner">
             <span>
