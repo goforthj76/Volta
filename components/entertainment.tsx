@@ -1,8 +1,6 @@
 "use client";
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Home,
   Youtube,
   Tv,
   Library,
@@ -14,7 +12,6 @@ import {
   Play,
   Plus,
   Check,
-  Wifi,
   BatteryMedium,
   X,
   Radio,
@@ -27,7 +24,6 @@ import {
   Link2,
   Moon,
   Shield,
-  MoreHorizontal,
 } from "lucide-react";
 import {
   artwork,
@@ -57,17 +53,11 @@ import CabinLauncher from "./cabin-launcher";
 import YouTubeView from "./youtube-view";
 import StremioView from "./stremio-view";
 import IptvView from "./iptv-view";
-import { Car, Crown } from "lucide-react";
+import TeslaDock from "./tesla-dock";
+import { Crown } from "lucide-react";
 import SecretMenu from "./secret-menu";
 import { getActiveUser, isMasterAdmin } from "@/lib/accounts";
-const navigation = [
-  { name: "Home", icon: Home },
-  { name: "YouTube", icon: Youtube },
-  { name: "Live TV", icon: Tv },
-  { name: "Stremio", icon: Library },
-  { name: "Favorites", icon: Heart },
-  { name: "History", icon: History },
-];
+
 export default function Entertainment() {
   const [secretMenuOpen, setSecretMenuOpen] = useState(false);
   const [vehicle, setVehicle] = useState<Vehicle>("Tesla Model 3"),
@@ -619,117 +609,91 @@ export default function Entertainment() {
   }
   return (
     <div
-      className={`app ${compact ? "compact" : ""}`}
+      className={`app tesla-cockpit-layout ${compact ? "compact" : ""}`}
       data-page={page === "Home" && results !== null ? "Search" : page}
       data-vehicle={vehicle}
       data-display={display}
     >
-      <aside className="sidebar">
-        <Link className="brand" href="/" aria-label="Volta home">
-          <span className="brand-mark">
-            v<span>•</span>
-          </span>
-          <span>
-            volta<span className="brand-dot">.</span>
-          </span>
-        </Link>
-        <div className="sidebar-label">YOUR ENTERTAINMENT</div>
-        <nav>
-          {navigation.map(({ name, icon: Icon }) => (
-            <button
-              key={name}
-              className={`nav-item ${page === name ? "active" : ""}`}
-              onClick={() => navigate(name)}
-            >
-              <Icon size={21} />
-              <span>{name === "History" ? "Continue watching" : name}</span>
-              {name === "Live TV" && <span className="tiny-live" />}
-            </button>
-          ))}
+      <header className="tesla-watch-topbar">
+        <div
+          className="tesla-watch-brand-zone"
+          onClick={() => navigate("Home")}
+          role="button"
+          tabIndex={0}
+          aria-label="Volta Tesla Watch Home"
+        >
+          <span className="tesla-t-logo">T</span>
+          <span className="tesla-watch-title">TESLA WATCH</span>
+        </div>
+
+        <nav className="tesla-watch-nav-capsule" aria-label="Main Navigation">
+          {[
+            { id: "Home", label: "Home" },
+            { id: "YouTube", label: "YouTube" },
+            { id: "Stremio", label: "Streaming" },
+            { id: "Live TV", label: "Live TV", hasLive: true },
+            { id: "Favorites", label: "My List" },
+          ].map((tab) => {
+            const isActive =
+              results === null &&
+              (tab.id === "Favorites"
+                ? ["Favorites", "History", "My List"].includes(page)
+                : tab.id === "Stremio"
+                  ? ["Stremio", "Streaming"].includes(page)
+                  : page === tab.id);
+
+            return (
+              <button
+                key={tab.id}
+                className={`nav-capsule-btn ${isActive ? "active" : ""}`}
+                onClick={() => {
+                  setResults(null);
+                  navigate(tab.id);
+                }}
+              >
+                {tab.label}
+                {tab.hasLive && <span className="live-pill-mini">LIVE</span>}
+              </button>
+            );
+          })}
         </nav>
-        <div className="sidebar-bottom">
-          <div className="passenger-card">
-            <span className="passenger-icon">
-              <MonitorPlay size={20} />
-            </span>
-            <div>
-              <strong>Built for your Tesla</strong>
-              <p>Passenger entertainment</p>
-            </div>
-            <span className="status-dot" />
-          </div>
+
+        <div className="tesla-watch-right-zone">
           <button
-            className={`nav-item ${page === "Settings" ? "active" : ""}`}
-            onClick={() => navigate("Settings")}
+            className={`tesla-icon-btn ${searchOpen ? "active" : ""}`}
+            aria-label="Open search"
+            onClick={() => setSearchOpen(!searchOpen)}
+            title="Search entertainment or paste link"
           >
-            <Settings size={21} />
-            <span>Settings</span>
+            <Search size={18} />
           </button>
+          {isMasterAdmin(account) && (
+            <button
+              className="secret-vault-pill-btn"
+              onClick={() => setSecretMenuOpen(true)}
+              title="Master Owner Secret Vault & Invites"
+            >
+              <Crown size={14} />
+              <span>SECRET VAULT</span>
+            </button>
+          )}
           <button
-            className="sidebar-profile"
-            onClick={() => navigate("Profile")}
+            className="tesla-profile-pill"
+            onClick={() => setProfileOpen(!profileOpen)}
+            title="Profile switcher"
           >
-            <span className="avatar" style={{ background: profile?.color }}>
-              {profile?.name[0]}
+            <span
+              className="avatar-dot"
+              style={{ background: profile?.color || "#e2e8f0" }}
+            >
+              {profile?.name?.[0] || "P"}
             </span>
-            <span>
-              <strong>{profile?.name}</strong>
-              <small>
-                {account ? "Connected account" : "Personal profile"}
-              </small>
-            </span>
-            <MoreHorizontal size={20} />
+            <span>{profile?.name || "Passenger"}</span>
+            <ChevronDown size={14} />
           </button>
         </div>
-      </aside>
+      </header>
       <div className="main-shell">
-        <header className="topbar">
-          <div className="breadcrumb">
-            TESLA ENTERTAINMENT<span>/</span>
-            <strong>{page}</strong>
-          </div>
-          <div className="top-actions">
-            <button
-              className={`icon-button search-toggle ${searchOpen ? "selected" : ""}`}
-              aria-label="Open search"
-              onClick={() => setSearchOpen(!searchOpen)}
-            >
-              <Search size={21} />
-            </button>
-            <span className="top-divider" />
-            <span className="connection">
-              <Wifi size={17} />
-              <span>Connected</span>
-            </span>
-            <span className="drive-badge">
-              <Car size={13} />
-              <span>IN-MOTION ACTIVE</span>
-            </span>
-            {isMasterAdmin(account) && (
-              <button
-                className="secret-menu-trigger-btn"
-                onClick={() => setSecretMenuOpen(true)}
-                title="Open Owner Secret Vault & Invites"
-              >
-                <Crown size={15} />
-                <span>SECRET VAULT</span>
-              </button>
-            )}
-            <button
-              className="profile-trigger"
-              onClick={() => setProfileOpen(!profileOpen)}
-            >
-              <span
-                className="avatar small"
-                style={{ background: profile?.color }}
-              >
-                {profile?.name[0]}
-              </span>
-              <span>{profile?.name}</span>
-              <ChevronDown size={14} />
-            </button>
-          </div>
-        </header>
         {profileOpen && (
           <div className="profile-menu">
             <span className="eyebrow">WHO’S WATCHING?</span>
@@ -796,6 +760,7 @@ export default function Entertainment() {
               hasHistory={library.history.length > 0}
               onNavigate={navigate}
               onPlay={() => play(featured[0])}
+              onPlayMedia={play}
               onAccount={() => setAuthOpen(true)}
               onSave={(name, v, d) => {
                 setVehicle(v);
@@ -821,7 +786,7 @@ export default function Entertainment() {
             />
           ) : page === "YouTube" && results === null ? (
             <YouTubeView onPlay={play} />
-          ) : page === "Stremio" && results === null ? (
+          ) : (page === "Stremio" || page === "Streaming") && results === null ? (
             <StremioView onPlay={play} />
           ) : page === "Live TV" && results === null ? (
             <IptvView onPlay={play} />
@@ -1747,6 +1712,11 @@ export default function Entertainment() {
           </section>
         </div>
       )}
+      <TeslaDock
+        inMotion={true}
+        onOpenSettings={() => navigate("Settings")}
+        onOpenAppHub={() => navigate("Home")}
+      />
     </div>
   );
 }
