@@ -6,12 +6,14 @@ import {
   Film,
   Car,
   ChevronRight,
+  ChevronLeft,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 const VehicleStudio = dynamic(() => import("./vehicle-studio"), { ssr: false });
 import { Vehicle, Display } from "@/lib/vehicle";
 import { readLocal } from "@/lib/storage";
 import { Media } from "@/lib/media";
+import { fetchCinemetaCatalog } from "@/lib/stremio";
 
 // Official Real Logos
 function YouTubeLogo() {
@@ -42,34 +44,101 @@ function LiveTvLogo() {
   );
 }
 
-function HboBadge() {
-  return (
-    <span style={{
-      fontSize: "10px",
-      fontWeight: 900,
-      letterSpacing: "1px",
-      color: "#FFFFFF",
-      background: "rgba(0,0,0,0.65)",
-      border: "1px solid rgba(255,255,255,0.2)",
-      borderRadius: "4px",
-      padding: "2px 6px",
-      textTransform: "uppercase",
-    }}>
-      HBO
-    </span>
-  );
+interface TheatricalMovie {
+  id: string;
+  title: string;
+  subtitle: string;
+  badge: string;
+  studio: string;
+  rating?: string;
+  synopsis: string;
+  image: string;
+  youtubeId?: string;
+  stremioId?: string;
+  source: string;
 }
 
-// Curated Showcase Content Matching the Reference Image
-const heroFeature: Media = {
-  id: "hero-tlou",
-  title: "The Last of Us",
-  subtitle: "HBO Original · 4K UHD · Dolby Atmos",
-  image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80",
-  source: "Stremio",
-  duration: "58 min",
-  youtubeId: "uLtkt8BonwM", // 4K Official Trailer
-};
+// Popular Stremio Theatrical Movies Showcase
+const initialTheatricalMovies: TheatricalMovie[] = [
+  {
+    id: "hero-dune2",
+    title: "Dune: Part Two",
+    subtitle: "Legendary / Warner Bros · 4K IMAX · Dolby Atmos",
+    badge: "POPULAR IN THEATRES",
+    studio: "WARNER BROS",
+    rating: "8.6 ★",
+    synopsis: "Paul Atreides unites with Chani and the Fremen while seeking revenge against the conspirators who destroyed his family, facing a choice between love and the universe.",
+    image: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1600&auto=format&fit=crop&q=80",
+    youtubeId: "Way9Dexny3w",
+    stremioId: "tt15239678",
+    source: "Stremio",
+  },
+  {
+    id: "hero-deadpool",
+    title: "Deadpool & Wolverine",
+    subtitle: "Marvel Studios · 4K Ultra HD · Dolby Vision",
+    badge: "IN THEATRES NOW",
+    studio: "MARVEL STUDIOS",
+    rating: "7.8 ★",
+    synopsis: "Wade Wilson is pulled out of civilian retirement by the Time Variance Authority to embark on a multiverse mission alongside a grizzled, reluctant Wolverine.",
+    image: "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=1600&auto=format&fit=crop&q=80",
+    youtubeId: "73_1biulkYk",
+    stremioId: "tt6263850",
+    source: "Stremio",
+  },
+  {
+    id: "hero-gladiator2",
+    title: "Gladiator II",
+    subtitle: "Paramount Pictures · 4K Cinema · Dolby Atmos",
+    badge: "IN THEATRES NOW",
+    studio: "PARAMOUNT",
+    rating: "7.4 ★",
+    synopsis: "Years after the sacrifice of Maximus, Lucius must enter the Colosseum after his home is conquered by tyrannical emperors who rule Rome with an iron fist.",
+    image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80",
+    youtubeId: "4rgYUipGJNo",
+    stremioId: "tt9660502",
+    source: "Stremio",
+  },
+  {
+    id: "hero-furiosa",
+    title: "Furiosa: A Mad Max Saga",
+    subtitle: "George Miller / Warner Bros · 4K HDR · Dolby Atmos",
+    badge: "POPULAR IN THEATRES",
+    studio: "WARNER BROS",
+    rating: "7.6 ★",
+    synopsis: "As the world fell, young Furiosa is snatched from the Green Place of Many Mothers and falls into the hands of a great Biker Horde led by Dementus.",
+    image: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1600&auto=format&fit=crop&q=80",
+    youtubeId: "XJMuhwVlca4",
+    stremioId: "tt12037194",
+    source: "Stremio",
+  },
+  {
+    id: "hero-tlou",
+    title: "The Last of Us",
+    subtitle: "HBO Original · 4K UHD · Dolby Atmos",
+    badge: "HBO ORIGINAL",
+    studio: "HBO",
+    rating: "8.8 ★",
+    synopsis: "When you're lost in the darkness, look for the light. Joel and Ellie must survive a brutal post-pandemic journey across the ruins of America.",
+    image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80",
+    youtubeId: "uLtkt8BonwM",
+    stremioId: "tt3581920",
+    source: "Stremio",
+  },
+  {
+    id: "hero-oppenheimer",
+    title: "Oppenheimer",
+    subtitle: "Christopher Nolan / Universal · 70mm IMAX · 4K UHD",
+    badge: "ACADEMY AWARD WINNER",
+    studio: "UNIVERSAL",
+    rating: "8.9 ★",
+    synopsis: "The story of American scientist J. Robert Oppenheimer and his role in the development of the atomic bomb during the Manhattan Project.",
+    image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1600&auto=format&fit=crop&q=80",
+    youtubeId: "uYPbbksJxIg",
+    stremioId: "tt15398776",
+    source: "Stremio",
+  },
+];
 
 // 1:1 Match: BBC News, NBA, F1
 const liveNowCards = [
@@ -201,14 +270,70 @@ export default function CabinLauncher({
 }) {
   const [paint, setPaint] = useState(0);
   const [studioOpen, setStudioOpen] = useState(false);
+  const [theatricalList, setTheatricalList] = useState<TheatricalMovie[]>(initialTheatricalMovies);
+  const [heroIndex, setHeroIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     setPaint(readLocal("volta.paint", 0));
   }, []);
 
+  // Fetch Live Popular Movies from Stremio Cinemeta
+  useEffect(() => {
+    let cancelled = false;
+    fetchCinemetaCatalog("movie", "top")
+      .then((metas) => {
+        if (cancelled || !metas || metas.length === 0) return;
+        const liveItems: TheatricalMovie[] = metas
+          .filter((m) => m.name && (m.background || m.poster))
+          .slice(0, 4)
+          .map((m) => ({
+            id: `cinemeta-${m.id}`,
+            title: m.name,
+            subtitle: `${m.year || "2024"} · ${m.genres?.slice(0, 2).join(" · ") || "Cinema"} · 4K UHD`,
+            badge: "POPULAR IN THEATRES",
+            studio: "STREMIO CINEMA",
+            rating: m.imdbRating ? `${m.imdbRating} ★` : undefined,
+            synopsis: m.description || `Experience ${m.name} on the road with immersive theater audio and visuals.`,
+            image: m.background || m.poster || initialTheatricalMovies[0].image,
+            stremioId: m.id,
+            source: "Stremio",
+          }));
+
+        if (liveItems.length > 0) {
+          setTheatricalList([...initialTheatricalMovies, ...liveItems]);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Auto-cycle through in-theatre movies every 7 seconds
+  useEffect(() => {
+    if (isPaused || theatricalList.length <= 1) return;
+    const interval = setInterval(() => {
+      setHeroIndex((prev) => (prev + 1) % theatricalList.length);
+    }, 7000);
+    return () => clearInterval(interval);
+  }, [isPaused, theatricalList.length]);
+
+  const activeMovie = theatricalList[heroIndex] || theatricalList[0];
+
   function handlePlayHero() {
+    const media: Media = {
+      id: activeMovie.id,
+      title: activeMovie.title,
+      subtitle: activeMovie.subtitle,
+      image: activeMovie.image,
+      youtubeId: activeMovie.youtubeId,
+      source: "Stremio",
+      mediaType: "movie",
+    };
     if (onPlayMedia) {
-      onPlayMedia(heroFeature);
+      onPlayMedia(media);
     } else {
       onPlay();
     }
@@ -233,34 +358,58 @@ export default function CabinLauncher({
 
   return (
     <div className="tesla-simplistic-cockpit">
-      {/* 1. Cinematic Hero Billboard ("The Last of Us") */}
-      <section className="tesla-hero-billboard">
+      {/* 1. Cinematic Hero Billboard — Cycling popular Stremio in-theatre movies */}
+      <section
+        className="tesla-hero-billboard"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+      >
         <div className="hero-backdrop-container">
           <img
-            src={heroFeature.image}
-            alt={heroFeature.title}
-            className="hero-backdrop-image"
+            key={activeMovie.id}
+            src={activeMovie.image}
+            alt={activeMovie.title}
+            className="hero-backdrop-image hero-fade-in"
           />
           <div className="hero-vignette-overlay" />
         </div>
 
+        {/* Carousel Arrow Controls */}
+        <button
+          className="hero-nav-arrow arrow-left"
+          onClick={() => setHeroIndex((prev) => (prev - 1 + theatricalList.length) % theatricalList.length)}
+          aria-label="Previous popular movie"
+          title="Previous movie"
+        >
+          <ChevronLeft size={24} />
+        </button>
+
+        <button
+          className="hero-nav-arrow arrow-right"
+          onClick={() => setHeroIndex((prev) => (prev + 1) % theatricalList.length)}
+          aria-label="Next popular movie"
+          title="Next movie"
+        >
+          <ChevronRight size={24} />
+        </button>
+
         <div className="hero-content-panel">
           <div className="hero-badges-row">
-            <span className="hero-brand-pill">HBO ORIGINAL</span>
+            <span className="hero-brand-pill">{activeMovie.badge}</span>
+            {activeMovie.rating && (
+              <span className="hero-rating-badge">{activeMovie.rating}</span>
+            )}
             <span className="hero-quality-badge">4K ULTRA HD</span>
             <span className="hero-hdr-badge">DOLBY ATMOS</span>
           </div>
 
-          <h1 className="hero-headline">{heroFeature.title}</h1>
-          <p className="hero-synopsis">
-            When you&apos;re lost in the darkness, look for the light. Joel and Ellie
-            must survive a brutal post-pandemic journey across the ruins.
-          </p>
+          <h1 className="hero-headline">{activeMovie.title}</h1>
+          <p className="hero-synopsis">{activeMovie.synopsis}</p>
 
           <div className="hero-action-buttons">
             <button className="hero-primary-btn" onClick={handlePlayHero}>
               <Play size={18} fill="currentColor" />
-              <span>Play Stream</span>
+              <span>Watch Trailer & Preview</span>
             </button>
 
             <button
@@ -268,7 +417,7 @@ export default function CabinLauncher({
               onClick={() => onNavigate("Stremio")}
             >
               <Film size={17} />
-              <span>Browse Catalog</span>
+              <span>Open in Stremio Hub</span>
             </button>
 
             <button
@@ -282,8 +431,20 @@ export default function CabinLauncher({
           </div>
         </div>
 
-        <div className="hero-corner-hbo">
-          <HboBadge />
+        {/* Studio Badge & Carousel Dot Indicators */}
+        <div className="hero-bottom-indicators-bar">
+          <span className="hero-theatre-tag">{activeMovie.studio}</span>
+          <div className="hero-dot-indicators-group">
+            {theatricalList.map((m, idx) => (
+              <button
+                key={m.id}
+                className={`hero-dot-pill ${idx === heroIndex ? "active" : ""}`}
+                onClick={() => setHeroIndex(idx)}
+                aria-label={`Jump to ${m.title}`}
+                title={m.title}
+              />
+            ))}
+          </div>
         </div>
       </section>
 
