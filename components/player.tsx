@@ -146,6 +146,40 @@ export default function Player({
     }, 3500);
   }, [playing]);
 
+  // Sync audio with Tesla bottom dock
+  useEffect(() => {
+    const handleDockVolume = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      const v = videoRef.current;
+      if (!v) return;
+      if (typeof detail?.muted === "boolean") {
+        v.muted = detail.muted;
+        setMuted(detail.muted);
+      }
+      if (typeof detail?.volume === "number") {
+        const val = Math.max(0, Math.min(1, detail.volume / 100));
+        v.volume = val;
+        setVolume(val);
+        if (val > 0 && v.muted) {
+          v.muted = false;
+          setMuted(false);
+        }
+      }
+    };
+    window.addEventListener("volta-dock-volume", handleDockVolume);
+    return () => window.removeEventListener("volta-dock-volume", handleDockVolume);
+  }, []);
+
+  const handleViewportClick = () => {
+    const v = videoRef.current;
+    if (v && muted) {
+      v.muted = false;
+      setMuted(false);
+      return;
+    }
+    togglePlay();
+  };
+
   useEffect(() => {
     showControls();
     return () => {
@@ -460,7 +494,7 @@ export default function Player({
           </div>
         </div>
       ) : (
-        <div className="video-viewport" onClick={togglePlay}>
+        <div className="video-viewport" onClick={handleViewportClick}>
           {/* Canvas for Tesla in-motion playback */}
           <canvas
             ref={canvasRef}

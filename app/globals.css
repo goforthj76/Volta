@@ -5935,3 +5935,195 @@ textarea {
   gap: 10px;
   justify-content: flex-end;
 }
+
+/* ==========================================================================
+   SIMPLISTIC 1:1 TESLA COCKPIT & TRIO APP HUB (YouTube, Stremio, Live TV)
+   ========================================================================== */
+.tesla-simplistic-cockpit {
+  max-width: 1440px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 16px 28px 100px;
+}
+
+.tesla-trio-app-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  max-width: 640px;
+}
+
+.tesla-app-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 104px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+}
+
+.tesla-app-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+}
+
+.tile-youtube {
+  background: linear-gradient(145deg, #c00a14 0%, #7f080e 100%);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.tile-youtube:hover {
+  box-shadow: 0 0 30px rgba(229, 9, 20, 0.45);
+}
+
+.tile-stremio {
+  background: linear-gradient(145deg, #6d28d9 0%, #4c1d95 100%);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.tile-stremio:hover {
+  box-shadow: 0 0 30px rgba(124, 58, 237, 0.45);
+}
+
+.tile-livetv {
+  background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+.tile-livetv:hover {
+  border-color: #10b981;
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.35);
+}
+
+.app-tile-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+}
+
+.app-tile-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.3px;
+}
+
+.carousel-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  margin-bottom: 12px;
+  user-select: none;
+}
+
+.carousel-title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.carousel-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+.chevron-link {
+  color: #94a3b8;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.carousel-header-row:hover .chevron-link {
+  color: #ffffff;
+  transform: translateX(4px);
+}
+
+.live-dot-pulse {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  margin-right: 4px;
+  animation: pulse-dot 1.2s infinite;
+}
+
+/* 3D Studio Canvas Fix */
+.real-vehicle-studio {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 340px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: radial-gradient(circle at 50% 40%, #161b26 0%, #080a0e 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.real-vehicle-studio canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+  outline: none;
+}
+
+.studio-hint {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.studio-model-note {
+  position: absolute;
+  bottom: 14px;
+  left: 16px;
+  font-size: 11px;
+  color: #94a3b8;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 4px 10px;
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.studio-credit {
+  position: absolute;
+  bottom: 14px;
+  right: 16px;
+  font-size: 11px;
+  color: #64748b;
+  text-decoration: none;
+  z-index: 5;
+}
+
+.hero-corner-hbo {
+  position: absolute;
+  bottom: 24px;
+  right: 28px;
+  z-index: 4;
+}
+
+.continue-watching-section {
+  margin-top: 4px;
+}

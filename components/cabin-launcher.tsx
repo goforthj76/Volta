@@ -3,10 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   Play,
-  Star,
-  Tv,
   Film,
-  Sparkles,
   Car,
   ChevronRight,
 } from "lucide-react";
@@ -16,102 +13,54 @@ import { Vehicle, Display } from "@/lib/vehicle";
 import { readLocal } from "@/lib/storage";
 import { Media } from "@/lib/media";
 
-// Official Branded Service SVGs
+// Official Real Logos
 function YouTubeLogo() {
   return (
-    <svg viewBox="0 0 48 34" width="38" height="26" fill="none">
-      <path
-        d="M47.06 5.27A6.03 6.03 0 0042.82 1C39.08 0 24 0 24 0S8.92 0 5.18 1A6.03 6.03 0 00.94 5.27C0 9.03 0 17 0 17s0 7.97.94 11.73A6.03 6.03 0 005.18 33c3.74 1 18.82 1 18.82 1s15.08 0 18.82-1a6.03 6.03 0 004.24-4.27c.94-3.76.94-11.73.94-11.73s0-7.97-.94-11.73z"
-        fill="#FF0000"
-      />
-      <path d="M19.2 24.23L31.68 17 19.2 9.77v14.46z" fill="#FFFFFF" />
+    <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor">
+      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="#FFFFFF"/>
     </svg>
   );
 }
 
-function NetflixLogo() {
+function StremioLogo() {
   return (
-    <svg viewBox="0 0 111 30" width="68" height="20" fill="none">
-      <path
-        d="M105.06 14.34l5.94 15.66h-5.26l-3.32-8.77-3.34 8.77h-5.28l5.96-15.66-5.69-14.34h5.28l3.07 8.16 3.09-8.16h5.24l-5.69 14.34zm-22.39 15.66h-5.07V0h5.07v30zm-10.45-25.29h-5.8v25.29h-5.07V4.71h-5.8V0h16.67v4.71zm-21.72 25.29H38.7V0h11.8v4.71H43.77v7.92h6.1v4.71h-6.1v7.95h6.73v4.71zm-17.7 0H21.2l-6.84-18.06v18.06H9.4V0h11.6l6.83 18.06V0h4.97v30zM5.07 30H0V0h5.07v30z"
-        fill="#E50914"
-      />
+    <svg viewBox="0 0 48 48" width="38" height="38" fill="none">
+      <circle cx="24" cy="24" r="22" fill="#7C3AED" />
+      <path d="M19 14.5L33.5 24L19 33.5V14.5Z" fill="#FFFFFF" />
+      <path d="M28 18L33.5 24L28 30" stroke="#38BDF8" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
-function PrimeVideoLogo() {
+function LiveTvLogo() {
   return (
-    <svg viewBox="0 0 100 30" width="72" height="22" fill="none">
-      <text
-        x="0"
-        y="18"
-        fill="#FFFFFF"
-        fontFamily="system-ui, sans-serif"
-        fontWeight="800"
-        fontSize="15"
-        letterSpacing="-0.5"
-      >
-        prime video
-      </text>
-      <path
-        d="M2 24c22 7 55 6 78-2"
-        stroke="#00A8E1"
-        strokeWidth="2.8"
-        strokeLinecap="round"
-      />
-      <path d="M78 20l4 2.5-3 3" fill="#00A8E1" />
+    <svg viewBox="0 0 48 48" width="38" height="38" fill="none">
+      <rect x="6" y="10" width="36" height="26" rx="6" stroke="#10B981" strokeWidth="2.8" fill="rgba(16, 185, 129, 0.18)" />
+      <path d="M20 36L16 42M28 36L32 42M14 42H34" stroke="#10B981" strokeWidth="2.8" strokeLinecap="round" />
+      <polygon points="21,18 29,23 21,28" fill="#10B981" />
     </svg>
   );
 }
 
-function DisneyPlusLogo() {
+function HboBadge() {
   return (
-    <svg viewBox="0 0 90 32" width="62" height="22" fill="none">
-      <text
-        x="0"
-        y="22"
-        fill="#FFFFFF"
-        fontFamily="Georgia, serif"
-        fontWeight="bold"
-        fontSize="19"
-        letterSpacing="0.5"
-      >
-        Disney
-      </text>
-      <text
-        x="66"
-        y="20"
-        fill="#42A5F5"
-        fontFamily="system-ui, sans-serif"
-        fontWeight="900"
-        fontSize="21"
-      >
-        +
-      </text>
-    </svg>
+    <span style={{
+      fontSize: "10px",
+      fontWeight: 900,
+      letterSpacing: "1px",
+      color: "#FFFFFF",
+      background: "rgba(0,0,0,0.65)",
+      border: "1px solid rgba(255,255,255,0.2)",
+      borderRadius: "4px",
+      padding: "2px 6px",
+      textTransform: "uppercase",
+    }}>
+      HBO
+    </span>
   );
 }
 
-function MaxLogo() {
-  return (
-    <svg viewBox="0 0 70 26" width="52" height="20" fill="none">
-      <text
-        x="2"
-        y="21"
-        fill="#FFFFFF"
-        fontFamily="system-ui, sans-serif"
-        fontWeight="900"
-        fontSize="22"
-        letterSpacing="-1"
-      >
-        max
-      </text>
-    </svg>
-  );
-}
-
-// Curated Showcase Content
+// Curated Showcase Content Matching the Reference Image
 const heroFeature: Media = {
   id: "hero-tlou",
   title: "The Last of Us",
@@ -119,164 +68,139 @@ const heroFeature: Media = {
   image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80",
   source: "Stremio",
   duration: "58 min",
-  youtubeId: "uLtkt8BonwM", // Official 4K Trailer
+  youtubeId: "uLtkt8BonwM", // 4K Official Trailer
 };
 
-const liveNowFeeds = [
+// 1:1 Match: BBC News, NBA, F1
+const liveNowCards = [
   {
-    id: "bbc-news",
-    title: "BBC News Live",
-    subtitle: "24/7 International Breaking News",
+    id: "live-bbc",
+    title: "BBC News",
+    subtitle: "Live News",
     network: "BBC",
-    badge: "NEWS",
-    image: "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&auto=format&fit=crop&q=70",
+    image: "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=80",
     url: "https://live.sky.com/hls/live/2007281/skynews_slot1/index.m3u8",
   },
   {
-    id: "redbull-live",
-    title: "Red Bull TV",
-    subtitle: "Extreme Sports, F1 & Action",
-    network: "RED BULL",
-    badge: "SPORTS",
-    image: "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=600&auto=format&fit=crop&q=70",
+    id: "live-nba",
+    title: "NBA",
+    subtitle: "Lakers vs Celtics",
+    network: "ESPN",
+    image: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800&auto=format&fit=crop&q=80",
     url: "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8",
   },
   {
-    id: "sky-f1",
-    title: "Sky News HD",
-    subtitle: "Live Global News & Investigations",
-    network: "SKY",
-    badge: "GLOBAL",
-    image: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600&auto=format&fit=crop&q=70",
-    url: "https://stream.france24.com/hls/live/2037554/F24_EN_LO_HLS/master.m3u8",
-  },
-  {
-    id: "nasa-hd",
-    title: "NASA TV HD",
-    subtitle: "Live Space Exploration & Orbit Feed",
-    network: "NASA",
-    badge: "TECH",
-    image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop&q=70",
-    url: "https://ntv1.akamaized.net/hls/live/2014075/NASA-NTV1-HLS/master.m3u8",
-  },
-  {
-    id: "bloomberg-hd",
-    title: "Bloomberg Originals",
-    subtitle: "Market Innovation & Finance",
-    network: "BLOOMBERG",
-    badge: "FINANCE",
-    image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=600&auto=format&fit=crop&q=70",
-    url: "https://liveproduseast.akamaized.net/us/Channel-HD-AWS-virginia-1/master.m3u8",
+    id: "live-f1",
+    title: "F1",
+    subtitle: "Saudi Arabian Grand Prix",
+    network: "F1 TV",
+    image: "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=800&auto=format&fit=crop&q=80",
+    url: "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8",
   },
 ];
 
+// 1:1 Match: Fallout, Top Gear, The Bear, House of the Dragon
 const recommendedCards = [
   {
     id: "rec-fallout",
     title: "Fallout",
-    genre: "Action · Drama · Sci-Fi",
-    year: "2024",
+    genre: "Action · Sci-Fi",
     platform: "PRIME",
     platformColor: "#00A8E1",
-    image: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=70",
+    image: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80",
     youtubeId: "V-mugKDQDlg",
+  },
+  {
+    id: "rec-topgear",
+    title: "Top Gear",
+    genre: "Automotive · Adventure",
+    platform: "BBC",
+    platformColor: "#FF4444",
+    image: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&auto=format&fit=crop&q=80",
+    youtubeId: "7X8II6J-6mU",
   },
   {
     id: "rec-bear",
     title: "The Bear",
-    genre: "Drama · Comedy",
-    year: "2024",
+    genre: "Drama · Culinary",
     platform: "HULU",
     platformColor: "#1CE783",
-    image: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&auto=format&fit=crop&q=70",
+    image: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80",
     youtubeId: "gBmkI4jlaIo",
   },
   {
     id: "rec-hotd",
     title: "House of the Dragon",
-    genre: "Action · Adventure · Fantasy",
-    year: "2024",
+    genre: "Fantasy · Drama",
     platform: "MAX",
     platformColor: "#002BE7",
-    image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&auto=format&fit=crop&q=70",
+    image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
     youtubeId: "DotnJ7tTA34",
   },
+];
+
+// 1:1 Match from Tesla Screen: Continue Watching
+const continueWatchingCards = [
   {
-    id: "rec-topgear",
-    title: "Top Gear Specials",
-    genre: "Automotive · Adventure",
-    year: "Classic",
-    platform: "BBC",
-    platformColor: "#FF4444",
-    image: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600&auto=format&fit=crop&q=70",
-    youtubeId: "7X8II6J-6mU",
-  },
-  {
-    id: "rec-shogun",
-    title: "Shōgun",
-    genre: "Historical Drama",
-    year: "2024",
-    platform: "HULU",
-    platformColor: "#1CE783",
-    image: "https://images.unsplash.com/photo-1492571350019-22de08371fd3?w=600&auto=format&fit=crop&q=70",
-    youtubeId: "yMf6CEWNpy8",
-  },
-  {
-    id: "rec-dune",
-    title: "Dune: Part Two",
-    genre: "Sci-Fi · Adventure",
-    year: "2024",
-    platform: "MAX",
-    platformColor: "#002BE7",
-    image: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&auto=format&fit=crop&q=70",
-    youtubeId: "Way9Dexny3w",
-  },
-  {
-    id: "rec-bbb",
-    title: "Big Buck Bunny 4K",
-    genre: "Open Cinema · 60fps",
-    year: "Classic",
-    platform: "4K CINEMA",
+    id: "cw-tlou",
+    title: "The Last of Us",
+    platform: "HBO Max",
     platformColor: "#A855F7",
-    image: "/art/forest.jpg",
-    url: "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8",
+    image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
+    youtubeId: "uLtkt8BonwM",
   },
   {
-    id: "rec-afterglow",
-    title: "Afterglow 4K",
-    genre: "Volta Original Escape",
-    year: "2026",
-    platform: "VOLTA",
-    platformColor: "#38BDF8",
-    image: "/art/afterglow.jpg",
-    url: "/media/afterglow.mp4",
+    id: "cw-opp",
+    title: "Oppenheimer",
+    platform: "Prime Video",
+    platformColor: "#00A8E1",
+    image: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800&auto=format&fit=crop&q=80",
+    youtubeId: "uYPbbksJxIg",
+  },
+  {
+    id: "cw-f1",
+    title: "F1: Drive to Survive",
+    platform: "Netflix",
+    platformColor: "#E50914",
+    image: "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=800&auto=format&fit=crop&q=80",
+    youtubeId: "wtJPe1ksS6E",
+  },
+  {
+    id: "cw-smith",
+    title: "Mr. & Mrs. Smith",
+    platform: "Prime Video",
+    platformColor: "#00A8E1",
+    image: "https://images.unsplash.com/photo-1477959858617-67f30bc75b82?w=800&auto=format&fit=crop&q=80",
+    youtubeId: "AsA_a1rZkWw",
+  },
+  {
+    id: "cw-bear",
+    title: "The Bear",
+    platform: "Hulu",
+    platformColor: "#1CE783",
+    image: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80",
+    youtubeId: "gBmkI4jlaIo",
   },
 ];
 
 export default function CabinLauncher({
-  name,
   vehicle,
-  display,
   onNavigate,
   onPlay,
   onPlayMedia,
-  onAccount,
-  onSave,
-  hasHistory,
 }: {
-  name: string;
+  name?: string;
   vehicle: Vehicle;
-  display: Display;
+  display?: Display;
   onNavigate: (page: string) => void;
   onPlay: () => void;
   onPlayMedia?: (media: Media) => void;
-  onAccount: () => void;
-  onSave: (name: string, vehicle: Vehicle, display: Display) => void;
-  hasHistory: boolean;
+  onAccount?: () => void;
+  onSave?: (name: string, vehicle: Vehicle, display: Display) => void;
+  hasHistory?: boolean;
 }) {
   const [paint, setPaint] = useState(0);
   const [studioOpen, setStudioOpen] = useState(false);
-  const [externalModal, setExternalModal] = useState<string | null>(null);
 
   useEffect(() => {
     setPaint(readLocal("volta.paint", 0));
@@ -290,59 +214,53 @@ export default function CabinLauncher({
     }
   }
 
-  function handlePlayItem(item: {
-    id: string;
-    title: string;
-    subtitle?: string;
-    image: string;
-    url?: string;
-    youtubeId?: string;
-  }) {
+  function handlePlayItem(title: string, subtitle: string, url?: string, youtubeId?: string, image?: string) {
+    const item: Media = {
+      id: `stream-${title.toLowerCase().replace(/[^a-z0-9]/g, "-")}`,
+      title,
+      subtitle,
+      url,
+      youtubeId,
+      image: image || "/art/space.jpg",
+      source: url ? "Live TV" : "Stremio",
+    };
     if (onPlayMedia) {
-      onPlayMedia({
-        id: item.id,
-        title: item.title,
-        subtitle: item.subtitle || "Featured Selection",
-        image: item.image,
-        source: item.url ? "Live TV" : "YouTube",
-        url: item.url,
-        youtubeId: item.youtubeId,
-      });
+      onPlayMedia(item);
     } else {
       onPlay();
     }
   }
 
   return (
-    <div className="tesla-watch-dashboard">
-      {/* Massive Cinematic Hero Showcase */}
+    <div className="tesla-simplistic-cockpit">
+      {/* 1. Cinematic Hero Billboard ("The Last of Us") */}
       <section className="tesla-hero-billboard">
-        <div
-          className="hero-backdrop-image"
-          style={{ backgroundImage: `url(${heroFeature.image})` }}
-        />
-        <div className="hero-gradient-overlay" />
+        <div className="hero-backdrop-container">
+          <img
+            src={heroFeature.image}
+            alt={heroFeature.title}
+            className="hero-backdrop-image"
+          />
+          <div className="hero-vignette-overlay" />
+        </div>
 
-        <div className="hero-content-container">
-          <div className="hero-meta-pill-row">
-            <span className="hero-platform-badge">HBO ORIGINAL</span>
-            <span className="hero-rating-badge">
-              <Star size={12} fill="currentColor" /> 9.1
-            </span>
+        <div className="hero-content-panel">
+          <div className="hero-badges-row">
+            <span className="hero-brand-pill">HBO ORIGINAL</span>
             <span className="hero-quality-badge">4K ULTRA HD</span>
-            <span className="hero-hdr-badge">DOLBY VISION</span>
+            <span className="hero-hdr-badge">DOLBY ATMOS</span>
           </div>
 
           <h1 className="hero-headline">{heroFeature.title}</h1>
           <p className="hero-synopsis">
             When you&apos;re lost in the darkness, look for the light. Joel and Ellie
-            must survive a brutal post-pandemic journey across the United States.
+            must survive a brutal post-pandemic journey across the ruins.
           </p>
 
           <div className="hero-action-buttons">
             <button className="hero-primary-btn" onClick={handlePlayHero}>
               <Play size={18} fill="currentColor" />
-              <span>Watch Trailer & Preview</span>
+              <span>Play Stream</span>
             </button>
 
             <button
@@ -350,265 +268,210 @@ export default function CabinLauncher({
               onClick={() => onNavigate("Stremio")}
             >
               <Film size={17} />
-              <span>Open in Streaming Hub</span>
+              <span>Browse Catalog</span>
             </button>
 
             <button
-              className="hero-ghost-btn"
+              className={`hero-studio-toggle-btn ${studioOpen ? "active" : ""}`}
               onClick={() => setStudioOpen(!studioOpen)}
-              title="Personalize 3D Vehicle"
+              title="Toggle 3D Vehicle Studio"
             >
-              <Car size={16} />
-              <span>{vehicle.replace("Tesla ", "")} Studio</span>
+              <Car size={17} />
+              <span>{studioOpen ? "Hide 3D Studio" : "3D Model 3 Studio"}</span>
             </button>
           </div>
         </div>
+
+        <div className="hero-corner-hbo">
+          <HboBadge />
+        </div>
       </section>
 
-      {/* 3D Vehicle Studio Drawer (Toggled from Hero) */}
+      {/* Embedded 3D Vehicle Studio Drawer */}
       {studioOpen && (
         <section className="tesla-embedded-studio-card">
           <div className="studio-card-header">
             <div>
-              <span className="eyebrow">YOUR TESLA COCKPIT STUDIO</span>
-              <h3>{vehicle}</h3>
+              <span className="eyebrow">TESLA VEHICLE STUDIO</span>
+              <h3>Interactive Model 3 Showroom</h3>
             </div>
             <button
               className="close-studio-btn"
               onClick={() => setStudioOpen(false)}
             >
-              Done
+              Close Studio
             </button>
           </div>
           <div className="studio-viewport-wrap">
-            <VehicleStudio vehicle={vehicle} paint={paint} />
+            <VehicleStudio paint={paint} vehicle={vehicle} />
           </div>
         </section>
       )}
 
-      {/* App Hub Row */}
+      {/* 2. App Hub — Simplistic: ONLY YouTube, Stremio, and Live TV */}
       <section className="tesla-app-hub-section">
-        <div className="section-title-row">
-          <div className="title-group">
-            <h2>App Hub</h2>
-            <p>All your favourite content in one place.</p>
+        <div className="hub-section-header">
+          <div>
+            <h2 className="hub-section-title">App Hub</h2>
+            <p className="hub-section-subtitle">All your favourite content in one place.</p>
           </div>
         </div>
 
-        <div className="app-hub-tiles-scroller">
+        <div className="tesla-trio-app-grid">
           {/* YouTube Tile */}
           <button
-            className="app-hub-tile tile-youtube"
+            className="tesla-app-tile tile-youtube"
             onClick={() => onNavigate("YouTube")}
+            title="Open YouTube"
           >
-            <div className="tile-logo-box">
+            <div className="app-tile-icon-wrap">
               <YouTubeLogo />
             </div>
-            <span className="tile-label">YouTube</span>
+            <span className="app-tile-label">YouTube</span>
           </button>
 
-          {/* Netflix Tile */}
+          {/* Stremio Tile */}
           <button
-            className="app-hub-tile tile-netflix"
-            onClick={() => setExternalModal("Netflix")}
-          >
-            <div className="tile-logo-box">
-              <NetflixLogo />
-            </div>
-            <span className="tile-label">Netflix</span>
-          </button>
-
-          {/* Prime Video Tile */}
-          <button
-            className="app-hub-tile tile-prime"
-            onClick={() => setExternalModal("Prime Video")}
-          >
-            <div className="tile-logo-box">
-              <PrimeVideoLogo />
-            </div>
-            <span className="tile-label">Prime Video</span>
-          </button>
-
-          {/* Disney+ Tile */}
-          <button
-            className="app-hub-tile tile-disney"
-            onClick={() => setExternalModal("Disney+")}
-          >
-            <div className="tile-logo-box">
-              <DisneyPlusLogo />
-            </div>
-            <span className="tile-label">Disney+</span>
-          </button>
-
-          {/* Max Tile */}
-          <button
-            className="app-hub-tile tile-max"
-            onClick={() => setExternalModal("Max")}
-          >
-            <div className="tile-logo-box">
-              <MaxLogo />
-            </div>
-            <span className="tile-label">Max</span>
-          </button>
-
-          {/* Stremio Streaming Tile */}
-          <button
-            className="app-hub-tile tile-stremio"
+            className="tesla-app-tile tile-stremio"
             onClick={() => onNavigate("Stremio")}
+            title="Open Stremio"
           >
-            <div className="tile-logo-box">
-              <Film size={26} color="#A855F7" />
+            <div className="app-tile-icon-wrap">
+              <StremioLogo />
             </div>
-            <span className="tile-label">Stremio</span>
+            <span className="app-tile-label">Stremio</span>
           </button>
 
           {/* Live TV Tile */}
           <button
-            className="app-hub-tile tile-livetv"
+            className="tesla-app-tile tile-livetv"
             onClick={() => onNavigate("Live TV")}
+            title="Open Live TV"
           >
-            <div className="tile-logo-box">
-              <Tv size={26} color="#10B981" />
+            <div className="app-tile-icon-wrap">
+              <LiveTvLogo />
             </div>
-            <span className="tile-label">Live TV</span>
+            <span className="app-tile-label">Live TV</span>
           </button>
         </div>
       </section>
 
-      {/* Live Now IPTV Row */}
+      {/* 3. Live Now Row (BBC News, NBA, F1) */}
       <section className="tesla-content-carousel-section">
-        <div className="section-title-row">
-          <div className="title-group">
-            <div className="live-header-indicator">
-              <span className="pulsing-red-dot" />
-              <h2>Live Now</h2>
-            </div>
-            <p>Live television & sports feeds ready for passenger viewing.</p>
+        <div className="carousel-header-row" onClick={() => onNavigate("Live TV")}>
+          <div className="carousel-title-group">
+            <h3 className="carousel-title">Live Now</h3>
+            <ChevronRight size={18} className="chevron-link" />
           </div>
-          <button
-            className="view-all-link-btn"
-            onClick={() => onNavigate("Live TV")}
-          >
-            <span>View All Channels</span>
-            <ChevronRight size={16} />
-          </button>
         </div>
 
-        <div className="content-cards-scroller">
-          {liveNowFeeds.map((feed) => (
+        <div className="tesla-widescreen-scroller">
+          {liveNowCards.map((card) => (
             <div
-              key={feed.id}
+              key={card.id}
               className="tesla-broadcast-card"
-              onClick={() => handlePlayItem(feed)}
+              onClick={() => handlePlayItem(card.title, card.subtitle, card.url, undefined, card.image)}
             >
               <div className="broadcast-thumb-box">
-                <img src={feed.image} alt={feed.title} loading="lazy" />
-                <span className="live-pill-tag">LIVE</span>
-                <span className="channel-network-pill">{feed.network}</span>
+                <img src={card.image} alt={card.title} loading="lazy" />
+                <span className="live-pill-tag">
+                  <span className="live-dot-pulse" /> LIVE
+                </span>
+                <span className="channel-network-pill">{card.network}</span>
                 <div className="play-overlay-hover">
-                  <Play size={26} fill="currentColor" />
+                  <Play size={32} fill="currentColor" />
                 </div>
               </div>
               <div className="broadcast-meta-box">
-                <h4>{feed.title}</h4>
-                <p>{feed.subtitle}</p>
+                <h4>{card.title}</h4>
+                <p>{card.subtitle}</p>
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Recommended for You Row */}
+      {/* 4. Recommended for You Row (Fallout, Top Gear, The Bear, House of the Dragon) */}
       <section className="tesla-content-carousel-section">
-        <div className="section-title-row">
-          <div className="title-group">
-            <h2>Recommended for You</h2>
-            <p>Top trending cinema, documentaries, and passenger escapes.</p>
+        <div className="carousel-header-row" onClick={() => onNavigate("Stremio")}>
+          <div className="carousel-title-group">
+            <h3 className="carousel-title">Recommended for You</h3>
+            <ChevronRight size={18} className="chevron-link" />
           </div>
-          <button
-            className="view-all-link-btn"
-            onClick={() => onNavigate("Stremio")}
-          >
-            <span>Browse Library</span>
-            <ChevronRight size={16} />
-          </button>
         </div>
 
-        <div className="content-cards-scroller">
-          {recommendedCards.map((rec) => (
+        <div className="tesla-widescreen-scroller">
+          {recommendedCards.map((card) => (
             <div
-              key={rec.id}
+              key={card.id}
               className="tesla-poster-card"
-              onClick={() => handlePlayItem(rec)}
+              onClick={() => handlePlayItem(card.title, card.genre, undefined, card.youtubeId, card.image)}
             >
               <div className="poster-thumb-box">
-                <img src={rec.image} alt={rec.title} loading="lazy" />
-                <div className="play-overlay-hover">
-                  <Play size={24} fill="currentColor" />
-                </div>
-                {/* Platform Badge on Poster */}
+                <img src={card.image} alt={card.title} loading="lazy" />
                 <span
                   className="platform-badge-pill"
-                  style={{ backgroundColor: `${rec.platformColor}26`, color: rec.platformColor, borderColor: `${rec.platformColor}40` }}
+                  style={{
+                    color: card.platformColor,
+                    borderColor: `${card.platformColor}55`,
+                    background: `${card.platformColor}18`,
+                  }}
                 >
-                  {rec.platform}
+                  {card.platform}
                 </span>
+                <div className="play-overlay-hover">
+                  <Play size={32} fill="currentColor" />
+                </div>
               </div>
               <div className="poster-meta-box">
-                <h4>{rec.title}</h4>
-                <p>{rec.genre}</p>
+                <h4>{card.title}</h4>
+                <p>{card.genre}</p>
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* External Streaming Launcher Modal */}
-      {externalModal && (
-        <div className="detail-modal-overlay" onClick={() => setExternalModal(null)}>
-          <div className="detail-modal-box" onClick={(e) => e.stopPropagation()}>
-            <div className="app-launch-dialog-header">
-              <h3>{externalModal} on Tesla</h3>
-              <p>
-                To stream {externalModal} while stationary, launch Tesla Theater or connect authorized accounts via Stremio.
-              </p>
-            </div>
-            <div className="app-launch-dialog-body">
-              <div className="launch-benefit-item">
-                <Sparkles size={20} className="launch-icon" />
-                <div>
-                  <strong>In-Motion Passenger Playback</strong>
-                  <p>For driving video in the front seat, use Volta&apos;s Live TV, YouTube, or Stremio.</p>
-                </div>
-              </div>
-              <div className="launch-benefit-item">
-                <Film size={20} className="launch-icon" />
-                <div>
-                  <strong>Synchronized Stremio Addons</strong>
-                  <p>Link your Stremio library to aggregate catalogs from all major networks.</p>
-                </div>
-              </div>
-            </div>
-            <div className="app-launch-dialog-actions">
-              <button
-                className="primary"
-                onClick={() => {
-                  setExternalModal(null);
-                  onNavigate("Stremio");
-                }}
-              >
-                Open Streaming Hub
-              </button>
-              <button
-                className="secondary"
-                onClick={() => setExternalModal(null)}
-              >
-                Close
-              </button>
-            </div>
+      {/* 5. Continue Watching Row (from the Model 3 touchscreen in reference) */}
+      <section className="tesla-content-carousel-section continue-watching-section">
+        <div className="carousel-header-row" onClick={() => onNavigate("Favorites")}>
+          <div className="carousel-title-group">
+            <h3 className="carousel-title">Continue Watching</h3>
+            <ChevronRight size={18} className="chevron-link" />
           </div>
         </div>
-      )}
+
+        <div className="tesla-widescreen-scroller">
+          {continueWatchingCards.map((card) => (
+            <div
+              key={card.id}
+              className="tesla-poster-card"
+              onClick={() => handlePlayItem(card.title, card.platform, undefined, card.youtubeId, card.image)}
+            >
+              <div className="poster-thumb-box">
+                <img src={card.image} alt={card.title} loading="lazy" />
+                <span
+                  className="platform-badge-pill"
+                  style={{
+                    color: card.platformColor,
+                    borderColor: `${card.platformColor}55`,
+                    background: `${card.platformColor}20`,
+                  }}
+                >
+                  {card.platform}
+                </span>
+                <div className="play-overlay-hover">
+                  <Play size={32} fill="currentColor" />
+                </div>
+              </div>
+              <div className="poster-meta-box">
+                <h4>{card.title}</h4>
+                <p>{card.platform}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

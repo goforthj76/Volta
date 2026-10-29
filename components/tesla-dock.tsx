@@ -36,6 +36,30 @@ export default function TeslaDock({
     setSeatWarmer((s) => (s + 1) % 4);
   }
 
+  function handleToggleMute() {
+    const next = !muted;
+    setMuted(next);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("volta-dock-volume", {
+          detail: { volume, muted: next },
+        }),
+      );
+    }
+  }
+
+  function handleVolumeChange(val: number) {
+    setVolume(val);
+    if (muted) setMuted(false);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("volta-dock-volume", {
+          detail: { volume: val, muted: false },
+        }),
+      );
+    }
+  }
+
   return (
     <footer className="tesla-bottom-dock" aria-label="Tesla vehicle controls">
       {/* Left Vehicle Controls */}
@@ -159,7 +183,7 @@ export default function TeslaDock({
         <div className="dock-volume-wrap">
           <button
             className={`dock-icon-btn ${muted ? "muted" : ""}`}
-            onClick={() => setMuted(!muted)}
+            onClick={handleToggleMute}
             onMouseEnter={() => setVolumeOpen(true)}
             title={`Volume: ${muted ? "Muted" : `${volume}%`}`}
             aria-label="Volume"
@@ -177,10 +201,7 @@ export default function TeslaDock({
                 min={0}
                 max={100}
                 value={muted ? 0 : volume}
-                onChange={(e) => {
-                  setVolume(parseInt(e.target.value));
-                  if (muted) setMuted(false);
-                }}
+                onChange={(e) => handleVolumeChange(parseInt(e.target.value))}
                 className="volume-range-slider"
               />
               <span>{muted ? "Mute" : `${volume}%`}</span>
