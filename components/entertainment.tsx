@@ -50,6 +50,7 @@ import YouTubeSetup from "./youtube-setup";
 import ProviderAccount from "./provider-account";
 import { addonResource, browserStreams, BrowserStream } from "@/lib/addons";
 import CabinLauncher from "./cabin-launcher";
+import { StremioMeta } from "@/lib/stremio";
 import YouTubeView from "./youtube-view";
 import StremioView from "./stremio-view";
 import IptvView from "./iptv-view";
@@ -60,6 +61,7 @@ import { getActiveUser, isMasterAdmin } from "@/lib/accounts";
 
 export default function Entertainment() {
   const [secretMenuOpen, setSecretMenuOpen] = useState(false);
+  const [dashboardMovie, setDashboardMovie] = useState<StremioMeta | null>(null);
   const [vehicle, setVehicle] = useState<Vehicle>("Tesla Model 3"),
     [display, setDisplay] = useState<Display>("Center display (parked)");
   const [streamChoices, setStreamChoices] = useState<{
@@ -251,6 +253,7 @@ export default function Entertainment() {
     }
   }, [toast]);
   function navigate(name: string) {
+    setDashboardMovie(null);
     setPage(name);
     setQuery("");
     setResults(null);
@@ -615,22 +618,20 @@ export default function Entertainment() {
       data-display={display}
     >
       <header className="tesla-watch-topbar">
-        <div
+        <button
           className="tesla-watch-brand-zone"
           onClick={() => navigate("Home")}
-          role="button"
-          tabIndex={0}
-          aria-label="Volta Tesla Watch Home"
+          aria-label="Volta Home"
         >
-          <span className="tesla-t-logo">T</span>
-          <span className="tesla-watch-title">TESLA WATCH</span>
-        </div>
+          <span className="tesla-t-logo">V</span>
+          <span className="tesla-watch-title">VOLTA</span>
+        </button>
 
         <nav className="tesla-watch-nav-capsule" aria-label="Main Navigation">
           {[
             { id: "Home", label: "Home" },
             { id: "YouTube", label: "YouTube" },
-            { id: "Stremio", label: "Streaming" },
+            { id: "Stremio", label: "Stremio" },
             { id: "Live TV", label: "Live TV", hasLive: true },
             { id: "Favorites", label: "My List" },
           ].map((tab) => {
@@ -754,40 +755,15 @@ export default function Entertainment() {
           )}
           {page === "Home" && results === null ? (
             <CabinLauncher
-              name={profile?.name || "Alex"}
-              vehicle={vehicle}
-              display={display}
-              hasHistory={library.history.length > 0}
+              history={library.history}
               onNavigate={navigate}
-              onPlay={() => play(featured[0])}
               onPlayMedia={play}
-              onAccount={() => setAuthOpen(true)}
-              onSave={(name, v, d) => {
-                setVehicle(v);
-                setDisplay(d);
-                writeLocal("volta.vehicle", { vehicle: v, display: d });
-                const next = profiles.map((p) =>
-                  p.id === profileId ? { ...p, name } : p,
-                );
-                setProfiles(next);
-                writeLocal("volta.profiles", next);
-                if (account)
-                  supabase()
-                    .auth.updateUser({
-                      data: { vehicle: v, display: d, profiles: next },
-                    })
-                    .then(({ error }) => {
-                      if (error)
-                        notify(
-                          "Saved on this device. Cloud sync is unavailable.",
-                        );
-                    });
-              }}
+              onOpenMovie={(movie) => { navigate("Stremio"); setDashboardMovie(movie); }}
             />
           ) : page === "YouTube" && results === null ? (
             <YouTubeView onPlay={play} />
           ) : (page === "Stremio" || page === "Streaming") && results === null ? (
-            <StremioView onPlay={play} />
+            <StremioView onPlay={play} initialItem={dashboardMovie} />
           ) : page === "Live TV" && results === null ? (
             <IptvView onPlay={play} />
           ) : page === "Settings" ? (

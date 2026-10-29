@@ -1,0 +1,104 @@
+/* TV home: cinematic stage, branded app strip, and poster shelves. */
+.app.tesla-cockpit-layout[data-page="Home"] { height: auto; min-height: 100dvh; overflow: visible; padding: 0; color: #fff; background: #08090c; }
+.app[data-page="Home"] > .main-shell { height: auto; overflow: visible; }
+.app[data-page="Home"] main { flex: none; overflow: visible; min-height: 0; padding: 0; }
+.app[data-page="Home"] .global-search { position: relative; margin: 100px 5vw 0; z-index: 95; }
+.tesla-watch-topbar { min-height: 88px; height: auto; padding: 18px 5vw; gap: 22px; flex-wrap: wrap; border: 0; background: #08090cf5; }
+.app[data-page="Home"] .tesla-watch-topbar { position: absolute; inset: 0 0 auto; background: linear-gradient(#08090cca, transparent); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.tesla-watch-brand-zone { background: transparent; border: 0; padding: 0; min-height: 44px; flex-shrink: 0; gap: 8px; }
+.tesla-t-logo { color: white; box-shadow: none; border-radius: 0; width: 30px; height: 38px; background: url("/volta-mark.svg") center / contain no-repeat; font-size: 0; }
+.tesla-watch-title { font-size: 20px; letter-spacing: 5px; font-weight: 800; }
+.tesla-watch-nav-capsule { border: 0; background: transparent; padding: 0; gap: 8px; flex-wrap: wrap; justify-content: center; scrollbar-width: none; }
+.tesla-watch-nav-capsule::-webkit-scrollbar { display: none; }
+.nav-capsule-btn { min-height: 44px; padding: 9px 18px; border-radius: 30px; font-size: 14px; color: #e0e0e6; background: transparent; font-weight: 550; }
+.nav-capsule-btn.active { background: #fff; color: #101015; box-shadow: none; }
+.nav-capsule-btn:hover { background: #ffffff24; color: #fff; }
+.nav-capsule-btn.active:hover { background: #fff; color: #101015; }
+.tesla-watch-right-zone { flex-shrink: 0; gap: 12px; }
+.tesla-icon-btn { width: 44px; height: 44px; background: #ffffff10; border: 1px solid #ffffff20; }
+.tesla-profile-pill { min-height: 44px; background: #ffffff10; border: 1px solid #ffffff20; }
+.tesla-profile-pill > span:not(.avatar-dot) { display: none; }
+.live-pill-mini { display: none; }
+.watch-dashboard { width: 100%; margin: 0; padding: 0 0 84px; font-family: Arial, Helvetica, sans-serif; overflow: clip; }
+.watch-dashboard button { font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.watch-dashboard button:focus-visible, .tesla-watch-topbar button:focus-visible { outline: 3px solid white; outline-offset: 5px; }
+.watch-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.watch-top-grid { display: block; }
+.watch-hero { position: relative; min-height: 650px; height: min(78vh, 850px); isolation: isolate; display: flex; align-items: center; background: #17191e; }
+.watch-hero-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 65% 28%; z-index: -3; }
+.watch-hero-shade { position: absolute; inset: 0; z-index: -2; background: linear-gradient(90deg, #08090ced 0%, #08090c99 32%, #08090c10 72%), linear-gradient(0deg, #08090c 0%, #08090c55 24%, transparent 55%); }
+.watch-hero-content { width: 100%; padding: 105px 5vw 85px; }
+.watch-source { display: flex; gap: 10px; align-items: center; font-size: 16px; font-weight: 650; color: #f8f7fc; }
+.watch-stremio-mark { width: 24px; height: 24px; display: inline-flex; color: white; }
+.watch-stremio-mark svg { width: 100%; height: 100%; }
+.watch-source-divider { height: 13px; width: 1px; background: #ffffff60; margin: 0 5px; }
+.watch-source { letter-spacing: 1.4px; font-size: 11px; }
+.watch-hero h2 { max-width: 600px; font-weight: 850; font-size: clamp(56px, 6.8vw, 104px); letter-spacing: -3px; line-height: .98; margin: 24px 0; text-wrap: balance; text-shadow: 0 5px 35px #0005; }
+.watch-hero h2.watch-title-with-logo { height: 148px; width: min(470px, 46vw); display: flex; align-items: center; justify-content: flex-start; }
+.watch-title-with-logo img { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; object-position: left center; filter: drop-shadow(0 5px 16px #0007); }
+.watch-meta { color: #e3e3e9; font-size: 14px; font-weight: 600; margin: 0 0 18px; letter-spacing: .3px; }
+.watch-synopsis { color: #d0d0d9; font-size: 16px; line-height: 1.6; max-width: 490px; margin: 0 0 27px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.watch-hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+.watch-primary, .watch-secondary { min-height: 52px; border: 0; border-radius: 100px; display: inline-flex; justify-content: center; align-items: center; gap: 10px; padding: 0 26px; font-size: 14px; font-weight: 700; transition: transform .2s, background .2s; }
+.watch-primary { background: #fff; color: #101015; box-shadow: 0 5px 25px #0002; }
+.watch-primary:hover { background: #e8e0ff; transform: scale(1.035); }
+.watch-secondary { color: #fff; background: #ffffff20; backdrop-filter: blur(16px); }
+.watch-secondary:hover { background: #ffffff35; transform: scale(1.035); }
+.watch-carousel-controls { position: absolute; bottom: 82px; right: 5vw; display: flex; align-items: center; gap: 22px; }
+.watch-dots, .watch-arrows { display: flex; align-items: center; }
+.watch-dots button { border: 0; width: 20px; height: 44px; padding: 0 5px; background: none; }
+.watch-dots button span { display: block; height: 6px; width: 6px; border-radius: 100px; background: #ffffff50; transition: width .2s; }
+.watch-dots button[aria-pressed="true"] { width: 33px; }
+.watch-dots button[aria-pressed="true"] span { background: #fff; width: 23px; }
+.watch-arrows { gap: 8px; }
+.watch-arrows button, .watch-icon-button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid #ffffff20; border-radius: 50%; color: #fff; background: #ffffff0b; flex-shrink: 0; transition: background .2s, transform .2s; }
+.watch-arrows button:hover, .watch-icon-button:hover { background: #ffffff25; transform: scale(1.06); }
+.watch-arrows > span { display: none; }
+.watch-hub { position: relative; z-index: 2; margin: -43px 5vw 0; padding: 0; }
+.watch-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.watch-section-heading h2 { margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -.65px; line-height: 1.25; display: flex; align-items: center; gap: 12px; }
+.watch-section-heading p { font-size: 13px; color: #8e8e9d; margin: 7px 0 0; }
+.watch-app-count { font-size: 10px; font-weight: 500; border: 1px solid #ffffff25; color: #aaa9b7; border-radius: 30px; padding: 4px 7px; letter-spacing: .5px; }
+.watch-apps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.watch-app { position: relative; min-height: 116px; padding: 24px; border: 1px solid #ffffff0e; border-radius: 16px; display: flex; align-items: center; justify-content: center; color: #fff; transition: transform .22s, box-shadow .22s; overflow: hidden; }
+.watch-app:hover, .watch-app:focus-visible { transform: translateY(-6px) scale(1.015); box-shadow: 0 14px 40px #0008; }
+.watch-app-stremio { background: radial-gradient(ellipse at 10% 0%, #b68aff80, transparent 65%), linear-gradient(115deg, #5e2dc4, #7c4bdc); }
+.watch-app-youtube { background: #f3f3f5; color: #101014; }
+.watch-app-tv { background: radial-gradient(ellipse at 90% 0%, #4a545e70, transparent 70%), #20242c; }
+.watch-app-logo { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.watch-app-logo > svg { width: 43px; height: 43px; flex-shrink: 0; }
+.watch-app-logo > strong { font-size: 29px; letter-spacing: -1.2px; font-weight: 700; }
+.watch-app-youtube .watch-app-logo > svg { width: 46px; height: 34px; }
+.watch-app-youtube .watch-app-logo > strong { letter-spacing: -1.7px; font-weight: 800; }
+.watch-app-tv .watch-app-logo > strong { font-size: 27px; font-weight: 600; letter-spacing: -1px; }
+.watch-app-tv .watch-app-logo > svg { width: 36px; height: 36px; }
+.watch-app-arrow { position: absolute; right: 20px; top: 18px; opacity: .35; }
+.watch-live-dot { width: 6px; height: 6px; border-radius: 50%; background: #b0f3cf; align-self: flex-start; margin-top: 8px; box-shadow: 0 0 12px #a5efc466; }
+.watch-text-link { padding: 0; min-height: 40px; display: inline-flex; align-items: center; gap: 7px; color: #c8c7d1; background: transparent; border: 0; font-size: 13px; white-space: nowrap; }
+.watch-library-section { margin: 36px 5vw 0; min-width: 0; }
+.watch-rail-actions { display: flex; align-items: center; gap: 9px; }
+.watch-rail-actions .watch-text-link { margin-right: 15px; }
+.watch-movie-rail { display: grid; grid-auto-columns: calc((100% - 60px) / 4); grid-auto-flow: column; gap: 20px; overflow-x: auto; padding: 10px 5px 18px; margin: -10px -5px -18px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.watch-movie-rail::-webkit-scrollbar { display: none; }
+.watch-poster-rail { grid-auto-columns: calc((100% - 100px) / 6); }
+.watch-movie { background: transparent; border: 0; padding: 0; min-width: 0; text-align: left; color: #efeff4; scroll-snap-align: start; }
+.watch-movie-art { aspect-ratio: 1.7; overflow: hidden; border-radius: 12px; position: relative; background: #20222c; margin-bottom: 13px; transition: transform .22s, box-shadow .22s; }
+.watch-poster-rail .watch-movie-art { aspect-ratio: 2 / 3; }
+.watch-movie-art > img, .watch-movie-art > .watch-art-fallback { width: 100%; height: 100%; object-fit: cover; }
+.watch-movie-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, #08090c70, transparent 30%); pointer-events: none; }
+.watch-movie:hover .watch-movie-art, .watch-movie:focus-visible .watch-movie-art { transform: translateY(-5px); box-shadow: 0 0 0 2px #fff, 0 15px 30px #0007; }
+.watch-card-source { position: absolute; left: 10px; bottom: 10px; z-index: 1; height: 24px; width: 24px; padding: 3px; border-radius: 50%; background: #753fc9; }
+.watch-card-source svg { width: 100%; height: 100%; }
+.watch-card-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; color: #15121d; width: 48px; height: 48px; border-radius: 50%; display: flex; justify-content: center; align-items: center; opacity: 0; z-index: 2; }
+.watch-movie:hover .watch-card-play, .watch-movie:focus-visible .watch-card-play { opacity: 1; }
+.watch-movie > strong { font-size: 14px; font-weight: 650; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.watch-movie > small { display: block; color: #858592; font-size: 12px; margin-top: 7px; }
+.watch-art-fallback { display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at 75% 20%, #383048, #13151e 70%); color: #aaa1bf; }
+.watch-footer { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin: 42px 5vw 0; padding-top: 22px; font-size: 11px; color: #696975; border-top: 1px solid #ffffff0a; }
+.watch-footer-brand { color: #9b9aa8; letter-spacing: 4px; margin-right: 18px; font-weight: 750; }
+.watch-footer button { display: flex; align-items: center; gap: 7px; background: transparent; border: 0; color: #9c9ba8; font-size: 12px; min-height: 44px; }
+@media (min-width: 1700px) { .watch-hero { min-height: 740px; } .watch-poster-rail { grid-auto-columns: calc((100% - 140px) / 8); } .watch-app { min-height: 130px; } }
+@media (max-width: 1100px) { .nav-capsule-btn { padding-inline: 12px; } .tesla-watch-topbar { gap: 12px; } .watch-hero { height: 650px; } .watch-hero h2.watch-title-with-logo { width: 410px; } .watch-poster-rail { grid-auto-columns: calc((100% - 60px) / 4); } .watch-app { min-height: 105px; padding: 18px; } .watch-app-logo > strong { font-size: 25px; } .watch-app-arrow { display: none; } .watch-synopsis { max-width: 430px; } }
+@media (max-width: 760px) { .tesla-watch-topbar { padding: 14px 5vw; gap: 12px; } .tesla-watch-nav-capsule { order: 3; width: 100%; flex-wrap: nowrap; justify-content: space-between; gap: 0; overflow-x: auto; } .nav-capsule-btn { padding-inline: 14px; font-size: 13px; } .watch-hero { min-height: 660px; height: 78vh; align-items: flex-end; } .watch-hero-content { padding: 170px 5vw 125px; } .watch-hero-image { object-position: 65% center; } .watch-hero-shade { background: linear-gradient(0deg, #08090c, #08090c80 52%, #08090c10 90%), linear-gradient(90deg,#08090c55,transparent); } .watch-carousel-controls { bottom: 72px; left: 5vw; right: 5vw; justify-content: space-between; } .watch-hero h2.watch-title-with-logo { width: min(400px, 80vw); height: 115px; } .watch-hero h2 { font-size: 64px; } .watch-synopsis { font-size: 14px; max-width: 450px; } .watch-apps { gap: 12px; } .watch-app { min-height: 90px; padding: 15px 8px; border-radius: 12px; } .watch-app-logo { gap: 6px; } .watch-app-logo > svg { width: 27px; height: 27px; } .watch-app-logo > strong { font-size: 20px; letter-spacing: -.8px; } .watch-app-youtube .watch-app-logo > svg { width: 29px; height: 23px; } .watch-app-tv .watch-app-logo > svg { width: 27px; height: 27px; } .watch-app-tv .watch-app-logo > strong { font-size: 20px; } .watch-live-dot { display: none; } .watch-poster-rail { grid-auto-columns: calc((100% - 40px) / 3); } .watch-section-heading h2 { font-size: 21px; } .watch-rail-actions .watch-icon-button { display: none; } .watch-rail-actions .watch-text-link { margin: 0; } }
+@media (max-width: 480px) { .tesla-watch-title { font-size: 17px; } .tesla-watch-nav-capsule { gap: 0; } .nav-capsule-btn { font-size: 12px; padding-inline: 12px; min-height: 42px; } .watch-hero { min-height: 650px; height: 80vh; } .watch-hero h2 { font-size: 52px; letter-spacing: -2px; margin: 20px 0; } .watch-hero h2.watch-title-with-logo { height: 100px; width: 80vw; } .watch-source { font-size: 9px; } .watch-meta { font-size: 12px; } .watch-synopsis { font-size: 13px; margin-bottom: 20px; } .watch-primary, .watch-secondary { min-height: 48px; padding: 0 18px; font-size: 12px; } .watch-hero-actions { gap: 8px; margin-top: 20px; } .watch-apps { gap: 10px; } .watch-app { min-height: 94px; } .watch-app-logo { flex-direction: column; gap: 6px; } .watch-app-logo > strong, .watch-app-tv .watch-app-logo > strong { font-size: 16px; letter-spacing: -.5px; } .watch-app-logo > svg { width: 30px; height: 30px; } .watch-poster-rail { grid-auto-columns: 42%; gap: 14px; } .watch-movie-rail:not(.watch-poster-rail) { grid-auto-columns: 76%; } .watch-movie > strong { font-size: 13px; } .watch-library-section { margin-top: 30px; } .watch-footer { flex-direction: column; align-items: flex-start; gap: 0; } .watch-section-heading { margin-bottom: 16px; } }
+@media (prefers-reduced-motion: reduce) { .watch-dashboard *, .watch-dashboard *::before, .watch-dashboard *::after { transition: none !important; scroll-behavior: auto !important; } }

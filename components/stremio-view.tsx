@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Search,
   Library,
@@ -28,8 +28,10 @@ import { readLocal, writeLocal } from "@/lib/storage";
 
 export default function StremioView({
   onPlay,
+  initialItem,
 }: {
   onPlay: (media: Media) => void;
+  initialItem?: StremioMeta | null;
 }) {
   const [activeTab, setActiveTab] = useState<"top" | "movie" | "series" | "library">("top");
   const [query, setQuery] = useState("");
@@ -212,29 +214,7 @@ export default function StremioView({
     setLoginModalOpen(false);
   }
 
-  async function openDetailModal(item: StremioMeta) {
-    setSelectedMeta(item);
-    setStreams([]);
-    setActiveEpisodeId(null);
-
-    const full = await fetchCinemetaMeta(item.type, item.id);
-    if (full) {
-      setSelectedMeta(full);
-      if (full.type === "movie") {
-        void loadStreams(full.type, full.id, full);
-      } else if (full.videos && full.videos.length > 0) {
-        const ep1 = full.videos.find((v) => v.season === 1 && v.episode === 1) || full.videos[0];
-        setActiveEpisodeId(ep1.id);
-        void loadStreams(full.type, ep1.id, full);
-      }
-    } else {
-      if (item.type === "movie") {
-        void loadStreams(item.type, item.id, item);
-      }
-    }
-  }
-
-  async function loadStreams(type: string, id: string, metaObj?: StremioMeta) {
+  const loadStreams = useCallback(async (type: string, id: string, metaObj?: StremioMeta) => {
     setStreamsLoading(true);
     setStreams([]);
     try {
@@ -248,10 +228,10 @@ export default function StremioView({
         }),
       });
       const data = (await res.json()) as { streams?: StremioStream[] };
-      let list = data.streams || [];
+      let list = (data.streams || []).filter(stream => stream.url?.startsWith("http://") || stream.url?.startsWith("https://") || (stream.ytId && /^[\w-]{11}$/.test(stream.ytId)));
 
       // If Cinemeta has trailer streams, add it as a verified working option
-      const activeItem = metaObj || selectedMeta;
+      const activeItem = metaObj;
       if (activeItem) {
         const trailerYt =
           activeItem.trailerStreams?.[0]?.ytId ||
@@ -274,12 +254,38 @@ export default function StremioView({
     } finally {
       setStreamsLoading(false);
     }
-  }
+  }, [userAddons]);
+
+  const openDetailModal = useCallback(async (item: StremioMeta) => {
+    setSelectedMeta(item);
+    setStreams([]);
+    setActiveEpisodeId(null);
+
+    const full = await fetchCinemetaMeta(item.type, item.id);
+    if (full) {
+      setSelectedMeta(full);
+      if (full.type === "movie") {
+        void loadStreams(full.type, full.id, full);
+      } else if (full.videos && full.videos.length > 0) {
+        const ep1 = full.videos.find((v) => v.season === 1 && v.episode === 1) || full.videos[0];
+        setActiveEpisodeId(ep1.id);
+        void loadStreams(full.type, ep1.id, full);
+      }
+    } else {
+      if (item.type === "movie") {
+        void loadStreams(item.type, item.id, item);
+      }
+    }
+  }, [loadStreams]);
+
+  useEffect(() => {
+    if (initialItem) void openDetailModal(initialItem);
+  }, [initialItem, openDetailModal]);
 
   function selectEpisode(epId: string) {
     setActiveEpisodeId(epId);
     if (selectedMeta) {
-      void loadStreams(selectedMeta.type, epId);
+      void loadStreams(selectedMeta.type, epId, selectedMeta);
     }
   }
 
@@ -294,9 +300,9 @@ export default function StremioView({
       }
     }
 
-    const streamUrl =
-      stream.url ||
-      (stream.infoHash ? `http://127.0.0.1:11470/${stream.infoHash}/0` : undefined);
+    const rawUrl = stream.url || (stream.infoHash ? `http://127.0.0.1:11470/${stream.infoHash}/0` : undefined);
+    const streamUrl = rawUrl?.startsWith("http://") ? `/api/proxy?url=${encodeURIComponent(rawUrl)}` : rawUrl;
+    if (!streamUrl && !stream.ytId) return;
 
     const media: Media = {
       id: `stremio-${selectedMeta.id}-${Date.now()}`,
@@ -433,7 +439,7 @@ export default function StremioView({
             <h1 className="hero-title">{featuredItem.name}</h1>
             <p className="hero-description">
               {featuredItem.description ||
-                "Watch high quality cinema and series on the road with Tesla passenger in-motion playback."}
+                "Explore movies and series from your connected Stremio sources."}
             </p>
             <div className="hero-actions">
               <button
@@ -441,7 +447,7 @@ export default function StremioView({
                 onClick={() => void openDetailModal(featuredItem)}
               >
                 <Play size={20} fill="currentColor" />
-                <span>Watch Now (In-Motion)</span>
+                <span>View sources</span>
               </button>
               <button
                 className="hero-info-btn"
@@ -626,7 +632,7 @@ export default function StremioView({
               {/* Stream Sources Section */}
               <div className="streams-section">
                 <div className="streams-header">
-                  <h4>Available Streams (Canvas In-Motion Ready)</h4>
+                  <h4>Available sources</h4>
                   {streamsLoading && <LoaderCircle className="spin" size={18} />}
                 </div>
 
@@ -688,7 +694,7 @@ export default function StremioView({
                                   : "rgba(245, 158, 11, 0.4)",
                             }}
                           >
-                            {isDirect ? "DIRECT (IN-MOTION)" : isYt ? "YOUTUBE" : "DEBRID / SERVER"}
+                            {isDirect ? "DIRECT" : isYt ? "YOUTUBE" : "DEBRID / SERVER"}
                           </span>
                         </button>
                       );

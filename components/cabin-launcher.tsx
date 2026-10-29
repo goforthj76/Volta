@@ -1,460 +1,236 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  Play,
-  Film,
-  Car,
-  ChevronRight,
-  ChevronLeft,
-} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowUpRight, ChevronLeft, ChevronRight, Film, Play, Settings, Tv, Car } from "lucide-react";
 import dynamic from "next/dynamic";
 const VehicleStudio = dynamic(() => import("./vehicle-studio"), { ssr: false });
-import { Vehicle, Display } from "@/lib/vehicle";
+import { Vehicle } from "@/lib/vehicle";
 import { readLocal } from "@/lib/storage";
 import { Media } from "@/lib/media";
-import { fetchCinemetaCatalog } from "@/lib/stremio";
+import { StremioMeta, fetchCinemetaCatalog, fetchCinemetaMeta } from "@/lib/stremio";
 
-// Official Real Logos
-function YouTubeLogo() {
-  return (
-    <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor">
-      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="#FFFFFF"/>
-    </svg>
-  );
+const picks: (StremioMeta & { trailerYt?: string })[] = [
+  { id: "tt15239678", type: "movie", name: "Dune: Part Two", year: "2024", genres: ["Adventure", "Sci-Fi"], description: "Paul Atreides joins forces with Chani and the Fremen on a journey that will decide the fate of the universe.", trailerYt: "Way9Dexny3w" },
+  { id: "tt15398776", type: "movie", name: "Oppenheimer", year: "2023", genres: ["Drama", "History"], description: "Christopher Nolan's portrait of the scientist whose work changed the world.", trailerYt: "uYPbbksJxIg" },
+  { id: "tt12037194", type: "movie", name: "Furiosa: A Mad Max Saga", year: "2024", genres: ["Action", "Adventure"], description: "A young warrior fights to find her way home across a world gone mad.", trailerYt: "XJMuhwVlca4" },
+  { id: "tt0816692", type: "movie", name: "Interstellar", year: "2014", genres: ["Adventure", "Sci-Fi"], description: "A team of explorers travels beyond this galaxy to discover whether mankind has a future among the stars.", trailerYt: "zSWdZVtXT7E" },
+  { id: "tt1856101", type: "movie", name: "Blade Runner 2049", year: "2017", genres: ["Sci-Fi", "Thriller"], description: "A new blade runner uncovers a secret that leads him to search for a missing legend.", trailerYt: "gCcx85zbxz4" },
+  { id: "tt1745960", type: "movie", name: "Top Gun: Maverick", year: "2022", genres: ["Action", "Drama"], description: "Maverick returns to train a new generation of pilots for a mission unlike any other.", trailerYt: "giXco2jaZ_4" },
+].map(movie => ({
+  ...movie,
+  background: `https://images.metahub.space/background/medium/${movie.id}/img`,
+  poster: `https://images.metahub.space/poster/medium/${movie.id}/img`,
+}));
+
+function Artwork({ src, className = "" }: { src?: string; className?: string }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
+  return src && !failed ? <img className={className} src={src} alt="" onError={() => setFailed(true)} /> : <div className={`watch-art-fallback ${className}`}><Film aria-hidden="true" /></div>;
 }
 
 function StremioLogo() {
-  return (
-    <svg viewBox="0 0 48 48" width="38" height="38" fill="none">
-      <circle cx="24" cy="24" r="22" fill="#7C3AED" />
-      <path d="M19 14.5L33.5 24L19 33.5V14.5Z" fill="#FFFFFF" />
-      <path d="M28 18L33.5 24L28 30" stroke="#38BDF8" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 2 46 24 24 46 2 24Z" fill="white" opacity=".22"/><path d="m19 12 18 12-18 12Z" fill="white"/><path d="m11 17 8-5v24l-8-5Z" fill="white" opacity=".55"/></svg>;
 }
 
-function LiveTvLogo() {
-  return (
-    <svg viewBox="0 0 48 48" width="38" height="38" fill="none">
-      <rect x="6" y="10" width="36" height="26" rx="6" stroke="#10B981" strokeWidth="2.8" fill="rgba(16, 185, 129, 0.18)" />
-      <path d="M20 36L16 42M28 36L32 42M14 42H34" stroke="#10B981" strokeWidth="2.8" strokeLinecap="round" />
-      <polygon points="21,18 29,23 21,28" fill="#10B981" />
-    </svg>
-  );
+function YouTubeLogo() {
+  return <svg viewBox="0 0 64 45" aria-hidden="true"><path d="M62.7 7A8 8 0 0 0 57 1.4C52 0 32 0 32 0S12 0 7 1.4A8 8 0 0 0 1.3 7C0 12 0 22.5 0 22.5S0 33 1.3 38A8 8 0 0 0 7 43.6C12 45 32 45 32 45s20 0 25-1.4a8 8 0 0 0 5.7-5.6C64 33 64 22.5 64 22.5S64 12 62.7 7Z" fill="#ff0033"/><path d="m26 13 17 9.5L26 32Z" fill="white"/></svg>;
 }
-
-interface TheatricalMovie {
-  id: string;
-  title: string;
-  subtitle: string;
-  badge: string;
-  studio: string;
-  rating?: string;
-  synopsis: string;
-  image: string;
-  youtubeId?: string;
-  stremioId?: string;
-  source: string;
-}
-
-// Popular Stremio Theatrical Movies Showcase
-const initialTheatricalMovies: TheatricalMovie[] = [
-  {
-    id: "hero-dune2",
-    title: "Dune: Part Two",
-    subtitle: "Legendary / Warner Bros · 4K IMAX · Dolby Atmos",
-    badge: "POPULAR IN THEATRES",
-    studio: "WARNER BROS",
-    rating: "8.6 ★",
-    synopsis: "Paul Atreides unites with Chani and the Fremen while seeking revenge against the conspirators who destroyed his family, facing a choice between love and the universe.",
-    image: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1600&auto=format&fit=crop&q=80",
-    youtubeId: "Way9Dexny3w",
-    stremioId: "tt15239678",
-    source: "Stremio",
-  },
-  {
-    id: "hero-deadpool",
-    title: "Deadpool & Wolverine",
-    subtitle: "Marvel Studios · 4K Ultra HD · Dolby Vision",
-    badge: "IN THEATRES NOW",
-    studio: "MARVEL STUDIOS",
-    rating: "7.8 ★",
-    synopsis: "Wade Wilson is pulled out of civilian retirement by the Time Variance Authority to embark on a multiverse mission alongside a grizzled, reluctant Wolverine.",
-    image: "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=1600&auto=format&fit=crop&q=80",
-    youtubeId: "73_1biulkYk",
-    stremioId: "tt6263850",
-    source: "Stremio",
-  },
-  {
-    id: "hero-gladiator2",
-    title: "Gladiator II",
-    subtitle: "Paramount Pictures · 4K Cinema · Dolby Atmos",
-    badge: "IN THEATRES NOW",
-    studio: "PARAMOUNT",
-    rating: "7.4 ★",
-    synopsis: "Years after the sacrifice of Maximus, Lucius must enter the Colosseum after his home is conquered by tyrannical emperors who rule Rome with an iron fist.",
-    image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80",
-    youtubeId: "4rgYUipGJNo",
-    stremioId: "tt9660502",
-    source: "Stremio",
-  },
-  {
-    id: "hero-furiosa",
-    title: "Furiosa: A Mad Max Saga",
-    subtitle: "George Miller / Warner Bros · 4K HDR · Dolby Atmos",
-    badge: "POPULAR IN THEATRES",
-    studio: "WARNER BROS",
-    rating: "7.6 ★",
-    synopsis: "As the world fell, young Furiosa is snatched from the Green Place of Many Mothers and falls into the hands of a great Biker Horde led by Dementus.",
-    image: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1600&auto=format&fit=crop&q=80",
-    youtubeId: "XJMuhwVlca4",
-    stremioId: "tt12037194",
-    source: "Stremio",
-  },
-  {
-    id: "hero-tlou",
-    title: "The Last of Us",
-    subtitle: "HBO Original · 4K UHD · Dolby Atmos",
-    badge: "HBO ORIGINAL",
-    studio: "HBO",
-    rating: "8.8 ★",
-    synopsis: "When you're lost in the darkness, look for the light. Joel and Ellie must survive a brutal post-pandemic journey across the ruins of America.",
-    image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80",
-    youtubeId: "uLtkt8BonwM",
-    stremioId: "tt3581920",
-    source: "Stremio",
-  },
-  {
-    id: "hero-oppenheimer",
-    title: "Oppenheimer",
-    subtitle: "Christopher Nolan / Universal · 70mm IMAX · 4K UHD",
-    badge: "ACADEMY AWARD WINNER",
-    studio: "UNIVERSAL",
-    rating: "8.9 ★",
-    synopsis: "The story of American scientist J. Robert Oppenheimer and his role in the development of the atomic bomb during the Manhattan Project.",
-    image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1600&auto=format&fit=crop&q=80",
-    youtubeId: "uYPbbksJxIg",
-    stremioId: "tt15398776",
-    source: "Stremio",
-  },
-];
-
-// 1:1 Match: BBC News, NBA, F1
-const liveNowCards = [
-  {
-    id: "live-bbc",
-    title: "BBC News",
-    subtitle: "Live News",
-    network: "BBC",
-    image: "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=80",
-    url: "https://live.sky.com/hls/live/2007281/skynews_slot1/index.m3u8",
-  },
-  {
-    id: "live-nba",
-    title: "NBA",
-    subtitle: "Lakers vs Celtics",
-    network: "ESPN",
-    image: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800&auto=format&fit=crop&q=80",
-    url: "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8",
-  },
-  {
-    id: "live-f1",
-    title: "F1",
-    subtitle: "Saudi Arabian Grand Prix",
-    network: "F1 TV",
-    image: "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=800&auto=format&fit=crop&q=80",
-    url: "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8",
-  },
-];
-
-// 1:1 Match: Fallout, Top Gear, The Bear, House of the Dragon
-const recommendedCards = [
-  {
-    id: "rec-fallout",
-    title: "Fallout",
-    genre: "Action · Sci-Fi",
-    platform: "PRIME",
-    platformColor: "#00A8E1",
-    image: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80",
-    youtubeId: "V-mugKDQDlg",
-  },
-  {
-    id: "rec-topgear",
-    title: "Top Gear",
-    genre: "Automotive · Adventure",
-    platform: "BBC",
-    platformColor: "#FF4444",
-    image: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&auto=format&fit=crop&q=80",
-    youtubeId: "7X8II6J-6mU",
-  },
-  {
-    id: "rec-bear",
-    title: "The Bear",
-    genre: "Drama · Culinary",
-    platform: "HULU",
-    platformColor: "#1CE783",
-    image: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80",
-    youtubeId: "gBmkI4jlaIo",
-  },
-  {
-    id: "rec-hotd",
-    title: "House of the Dragon",
-    genre: "Fantasy · Drama",
-    platform: "MAX",
-    platformColor: "#002BE7",
-    image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
-    youtubeId: "DotnJ7tTA34",
-  },
-];
-
-// 1:1 Match from Tesla Screen: Continue Watching
-const continueWatchingCards = [
-  {
-    id: "cw-tlou",
-    title: "The Last of Us",
-    platform: "HBO Max",
-    platformColor: "#A855F7",
-    image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
-    youtubeId: "uLtkt8BonwM",
-  },
-  {
-    id: "cw-opp",
-    title: "Oppenheimer",
-    platform: "Prime Video",
-    platformColor: "#00A8E1",
-    image: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800&auto=format&fit=crop&q=80",
-    youtubeId: "uYPbbksJxIg",
-  },
-  {
-    id: "cw-f1",
-    title: "F1: Drive to Survive",
-    platform: "Netflix",
-    platformColor: "#E50914",
-    image: "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=800&auto=format&fit=crop&q=80",
-    youtubeId: "wtJPe1ksS6E",
-  },
-  {
-    id: "cw-smith",
-    title: "Mr. & Mrs. Smith",
-    platform: "Prime Video",
-    platformColor: "#00A8E1",
-    image: "https://images.unsplash.com/photo-1477959858617-67f30bc75b82?w=800&auto=format&fit=crop&q=80",
-    youtubeId: "AsA_a1rZkWw",
-  },
-  {
-    id: "cw-bear",
-    title: "The Bear",
-    platform: "Hulu",
-    platformColor: "#1CE783",
-    image: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80",
-    youtubeId: "gBmkI4jlaIo",
-  },
-];
 
 export default function CabinLauncher({
-  vehicle,
   onNavigate,
-  onPlay,
+  onOpenMovie,
   onPlayMedia,
+  history = [],
+  vehicle = "Tesla Model 3",
 }: {
-  name?: string;
-  vehicle: Vehicle;
-  display?: Display;
   onNavigate: (page: string) => void;
-  onPlay: () => void;
-  onPlayMedia?: (media: Media) => void;
-  onAccount?: () => void;
-  onSave?: (name: string, vehicle: Vehicle, display: Display) => void;
-  hasHistory?: boolean;
+  onOpenMovie: (movie: StremioMeta) => void;
+  onPlayMedia: (media: Media) => void;
+  history?: Media[];
+  vehicle?: Vehicle;
 }) {
-  const [paint, setPaint] = useState(0);
-  const [studioOpen, setStudioOpen] = useState(false);
-  const [theatricalList, setTheatricalList] = useState<TheatricalMovie[]>(initialTheatricalMovies);
+  const [movies, setMovies] = useState(picks);
   const [heroIndex, setHeroIndex] = useState(0);
+  const [catalogLive, setCatalogLive] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [studioOpen, setStudioOpen] = useState(false);
+  const [paint, setPaint] = useState(0);
+  const rail = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setPaint(readLocal("volta.paint", 0));
   }, []);
 
-  // Fetch Live Popular Movies from Stremio Cinemeta
   useEffect(() => {
     let cancelled = false;
-    fetchCinemetaCatalog("movie", "top")
-      .then((metas) => {
-        if (cancelled || !metas || metas.length === 0) return;
-        const liveItems: TheatricalMovie[] = metas
-          .filter((m) => m.name && (m.background || m.poster))
-          .slice(0, 4)
-          .map((m) => ({
-            id: `cinemeta-${m.id}`,
-            title: m.name,
-            subtitle: `${m.year || "2024"} · ${m.genres?.slice(0, 2).join(" · ") || "Cinema"} · 4K UHD`,
-            badge: "POPULAR IN THEATRES",
-            studio: "STREMIO CINEMA",
-            rating: m.imdbRating ? `${m.imdbRating} ★` : undefined,
-            synopsis: m.description || `Experience ${m.name} on the road with immersive theater audio and visuals.`,
-            image: m.background || m.poster || initialTheatricalMovies[0].image,
-            stremioId: m.id,
-            source: "Stremio",
-          }));
-
-        if (liveItems.length > 0) {
-          setTheatricalList([...initialTheatricalMovies, ...liveItems]);
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      cancelled = true;
-    };
+    fetchCinemetaCatalog("movie").then(items => {
+      const usable = items.filter(item => item.id && item.name && (item.background || item.poster)).slice(0, 18);
+      if (!cancelled && usable.length) {
+        setMovies(usable);
+        setCatalogLive(true);
+      }
+    });
+    return () => { cancelled = true; };
   }, []);
 
-  // Auto-cycle through in-theatre movies every 7 seconds
-  useEffect(() => {
-    if (isPaused || theatricalList.length <= 1) return;
-    const interval = setInterval(() => {
-      setHeroIndex((prev) => (prev + 1) % theatricalList.length);
-    }, 7000);
-    return () => clearInterval(interval);
-  }, [isPaused, theatricalList.length]);
+  const heroMovies = picks.slice(0, 6);
+  const selectedHero = heroMovies[heroIndex] || heroMovies[0];
+  const [heroMeta, setHeroMeta] = useState<StremioMeta | null>(null);
+  const [logoFailed, setLogoFailed] = useState(false);
 
-  const activeMovie = theatricalList[heroIndex] || theatricalList[0];
+  useEffect(() => {
+    let cancelled = false;
+    setLogoFailed(false);
+    fetchCinemetaMeta("movie", selectedHero.id).then(meta => { if (!cancelled) setHeroMeta(meta); });
+    return () => { cancelled = true; };
+  }, [selectedHero.id]);
+
+  // Auto-cycle through hero movies every 7.5 seconds when not hovered
+  useEffect(() => {
+    if (isPaused) return;
+    const interval = setInterval(() => {
+      setHeroIndex(i => (i + 1) % heroMovies.length);
+    }, 7500);
+    return () => clearInterval(interval);
+  }, [isPaused, heroMovies.length]);
+
+  const hero = heroMeta?.id === selectedHero.id ? { ...selectedHero, ...heroMeta } : selectedHero;
+  const changeHero = (step: number) => setHeroIndex(i => (i + step + heroMovies.length) % heroMovies.length);
 
   function handlePlayHero() {
+    const trailerYt =
+      heroMeta?.trailerStreams?.[0]?.ytId ||
+      heroMeta?.trailers?.find((t) => t.source)?.source ||
+      selectedHero.trailerYt ||
+      "Way9Dexny3w";
+
     const media: Media = {
-      id: activeMovie.id,
-      title: activeMovie.title,
-      subtitle: activeMovie.subtitle,
-      image: activeMovie.image,
-      youtubeId: activeMovie.youtubeId,
+      id: `hero-${hero.id}`,
+      title: hero.name,
+      subtitle: `${hero.year || "2024"} · ${hero.genres?.slice(0, 2).join(" · ") || "Cinema"} · 4K UHD`,
+      image: hero.background || hero.poster || "/art/space.jpg",
+      youtubeId: trailerYt,
       source: "Stremio",
       mediaType: "movie",
     };
-    if (onPlayMedia) {
-      onPlayMedia(media);
-    } else {
-      onPlay();
-    }
-  }
-
-  function handlePlayItem(title: string, subtitle: string, url?: string, youtubeId?: string, image?: string) {
-    const item: Media = {
-      id: `stream-${title.toLowerCase().replace(/[^a-z0-9]/g, "-")}`,
-      title,
-      subtitle,
-      url,
-      youtubeId,
-      image: image || "/art/space.jpg",
-      source: url ? "Live TV" : "Stremio",
-    };
-    if (onPlayMedia) {
-      onPlayMedia(item);
-    } else {
-      onPlay();
-    }
+    onPlayMedia(media);
   }
 
   return (
-    <div className="tesla-simplistic-cockpit">
-      {/* 1. Cinematic Hero Billboard — Cycling popular Stremio in-theatre movies */}
-      <section
-        className="tesla-hero-billboard"
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-      >
-        <div className="hero-backdrop-container">
-          <img
-            key={activeMovie.id}
-            src={activeMovie.image}
-            alt={activeMovie.title}
-            className="hero-backdrop-image hero-fade-in"
-          />
-          <div className="hero-vignette-overlay" />
-        </div>
-
-        {/* Carousel Arrow Controls */}
-        <button
-          className="hero-nav-arrow arrow-left"
-          onClick={() => setHeroIndex((prev) => (prev - 1 + theatricalList.length) % theatricalList.length)}
-          aria-label="Previous popular movie"
-          title="Previous movie"
+    <div className="watch-dashboard">
+      <h1 className="watch-sr-only">Volta TV — your entertainment, together</h1>
+      <div className="watch-top-grid">
+        <section
+          className="watch-hero"
+          aria-label="Featured Stremio movies"
+          aria-roledescription="carousel"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
         >
-          <ChevronLeft size={24} />
-        </button>
-
-        <button
-          className="hero-nav-arrow arrow-right"
-          onClick={() => setHeroIndex((prev) => (prev + 1) % theatricalList.length)}
-          aria-label="Next popular movie"
-          title="Next movie"
-        >
-          <ChevronRight size={24} />
-        </button>
-
-        <div className="hero-content-panel">
-          <div className="hero-badges-row">
-            <span className="hero-brand-pill">{activeMovie.badge}</span>
-            {activeMovie.rating && (
-              <span className="hero-rating-badge">{activeMovie.rating}</span>
-            )}
-            <span className="hero-quality-badge">4K ULTRA HD</span>
-            <span className="hero-hdr-badge">DOLBY ATMOS</span>
+          <Artwork src={hero.background || hero.poster} className="watch-hero-image" />
+          <div className="watch-hero-shade" />
+          <div className="watch-hero-content">
+            <span className="watch-source">
+              <span className="watch-stremio-mark"><StremioLogo /></span> stremio <span className="watch-source-divider" /> POPULAR IN THEATRE
+            </span>
+            <h2 className={hero.logo && !logoFailed ? "watch-title-with-logo" : ""}>
+              {hero.logo && !logoFailed ? (
+                <img src={hero.logo} alt={hero.name} onError={() => setLogoFailed(true)} />
+              ) : (
+                hero.name
+              )}
+            </h2>
+            <p className="watch-meta">
+              {[hero.year, ...(hero.genres || []).slice(0, 2)].filter(Boolean).join(" · ") || "Discover your next great watch"}
+              {hero.imdbRating ? ` · ${hero.imdbRating} ★` : ""}
+            </p>
+            {hero.description && <p className="watch-synopsis">{hero.description}</p>}
+            <div className="watch-hero-actions">
+              <button className="watch-primary" onClick={handlePlayHero} title="Play trailer & stream">
+                <Play size={16} fill="currentColor" /> Play Stream
+              </button>
+              <button className="watch-secondary" onClick={() => onOpenMovie(hero)} title="Open Stremio sources">
+                <Film size={16} /> Watch in Stremio
+              </button>
+              <button
+                className={`watch-secondary ${studioOpen ? "active" : ""}`}
+                onClick={() => setStudioOpen(!studioOpen)}
+                title="Toggle 3D Vehicle Studio"
+              >
+                <Car size={16} /> {studioOpen ? "Hide 3D Studio" : "3D Showroom"}
+              </button>
+            </div>
           </div>
+          <div className="watch-carousel-controls">
+            <div className="watch-dots">
+              {heroMovies.map((movie, index) => (
+                <button
+                  key={movie.id}
+                  aria-label={`Feature ${movie.name}`}
+                  aria-pressed={heroIndex === index}
+                  onClick={() => setHeroIndex(index)}
+                >
+                  <span />
+                </button>
+              ))}
+            </div>
+            <div className="watch-arrows">
+              <button aria-label="Previous featured movie" onClick={() => changeHero(-1)}>
+                <ChevronLeft size={18} />
+              </button>
+              <span>{String(heroIndex + 1).padStart(2, "0")} / {String(heroMovies.length).padStart(2, "0")}</span>
+              <button aria-label="Next featured movie" onClick={() => changeHero(1)}>
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+        </section>
 
-          <h1 className="hero-headline">{activeMovie.title}</h1>
-          <p className="hero-synopsis">{activeMovie.synopsis}</p>
-
-          <div className="hero-action-buttons">
-            <button className="hero-primary-btn" onClick={handlePlayHero}>
-              <Play size={18} fill="currentColor" />
-              <span>Watch Trailer & Preview</span>
+        <aside className="watch-hub" aria-label="Your apps">
+          <div className="watch-section-heading">
+            <div>
+              <h2>Your apps<span className="watch-app-count">03</span></h2>
+            </div>
+            <button className="watch-icon-button" aria-label="Open settings" onClick={() => onNavigate("Settings")}>
+              <Settings size={20} />
             </button>
-
+          </div>
+          <div className="watch-apps">
             <button
-              className="hero-secondary-btn"
+              aria-label="Open Stremio"
+              className="watch-app watch-app-stremio"
               onClick={() => onNavigate("Stremio")}
             >
-              <Film size={17} />
-              <span>Open in Stremio Hub</span>
+              <span className="watch-app-logo"><StremioLogo /><strong>stremio</strong></span>
+              <ArrowUpRight className="watch-app-arrow" size={21} />
             </button>
-
             <button
-              className={`hero-studio-toggle-btn ${studioOpen ? "active" : ""}`}
-              onClick={() => setStudioOpen(!studioOpen)}
-              title="Toggle 3D Vehicle Studio"
+              aria-label="Open YouTube"
+              className="watch-app watch-app-youtube"
+              onClick={() => onNavigate("YouTube")}
             >
-              <Car size={17} />
-              <span>{studioOpen ? "Hide 3D Studio" : "3D Model 3 Studio"}</span>
+              <span className="watch-app-logo"><YouTubeLogo /><strong>YouTube</strong></span>
+              <ArrowUpRight className="watch-app-arrow" size={21} />
+            </button>
+            <button
+              aria-label="Open Live TV"
+              className="watch-app watch-app-tv"
+              onClick={() => onNavigate("Live TV")}
+            >
+              <span className="watch-app-logo"><Tv /><strong>Live TV</strong><span className="watch-live-dot" /></span>
+              <ArrowUpRight className="watch-app-arrow" size={21} />
             </button>
           </div>
-        </div>
-
-        {/* Studio Badge & Carousel Dot Indicators */}
-        <div className="hero-bottom-indicators-bar">
-          <span className="hero-theatre-tag">{activeMovie.studio}</span>
-          <div className="hero-dot-indicators-group">
-            {theatricalList.map((m, idx) => (
-              <button
-                key={m.id}
-                className={`hero-dot-pill ${idx === heroIndex ? "active" : ""}`}
-                onClick={() => setHeroIndex(idx)}
-                aria-label={`Jump to ${m.title}`}
-                title={m.title}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
+        </aside>
+      </div>
 
       {/* Embedded 3D Vehicle Studio Drawer */}
       {studioOpen && (
-        <section className="tesla-embedded-studio-card">
+        <section className="tesla-embedded-studio-card" style={{ margin: "24px 5vw 0" }}>
           <div className="studio-card-header">
             <div>
               <span className="eyebrow">TESLA VEHICLE STUDIO</span>
-              <h3>Interactive Model 3 Showroom</h3>
+              <h3 style={{ margin: "2px 0 0", color: "#ffffff", fontSize: "20px" }}>Interactive Model 3 Showroom</h3>
             </div>
             <button
               className="close-studio-btn"
@@ -469,170 +245,78 @@ export default function CabinLauncher({
         </section>
       )}
 
-      {/* 2. App Hub — Simplistic: ONLY YouTube, Stremio, and Live TV */}
-      <section className="tesla-app-hub-section">
-        <div className="hub-section-header">
+      {history.length > 0 && (
+        <section className="watch-library-section">
+          <div className="watch-section-heading">
+            <div>
+              <h2>Continue watching</h2>
+              <p>Pick up where you left off.</p>
+            </div>
+            <button className="watch-text-link" onClick={() => onNavigate("History")}>
+              View history <ChevronRight size={16} />
+            </button>
+          </div>
+          <div className="watch-movie-rail">
+            {history.slice(0, 6).map(media => (
+              <button className="watch-movie" key={media.id} onClick={() => onPlayMedia(media)}>
+                <div className="watch-movie-art">
+                  <Artwork src={media.image} />
+                  <span className="watch-card-play"><Play size={21} fill="currentColor" /></span>
+                </div>
+                <strong>{media.title}</strong>
+                <small>{media.source}{media.duration ? ` · ${media.duration}` : ""}</small>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="watch-library-section">
+        <div className="watch-section-heading">
           <div>
-            <h2 className="hub-section-title">App Hub</h2>
-            <p className="hub-section-subtitle">All your favourite content in one place.</p>
+            <h2>{catalogLive ? "Popular movies" : "Movie night picks"}</h2>
           </div>
-        </div>
-
-        <div className="tesla-trio-app-grid">
-          {/* YouTube Tile */}
-          <button
-            className="tesla-app-tile tile-youtube"
-            onClick={() => onNavigate("YouTube")}
-            title="Open YouTube"
-          >
-            <div className="app-tile-icon-wrap">
-              <YouTubeLogo />
-            </div>
-            <span className="app-tile-label">YouTube</span>
-          </button>
-
-          {/* Stremio Tile */}
-          <button
-            className="tesla-app-tile tile-stremio"
-            onClick={() => onNavigate("Stremio")}
-            title="Open Stremio"
-          >
-            <div className="app-tile-icon-wrap">
-              <StremioLogo />
-            </div>
-            <span className="app-tile-label">Stremio</span>
-          </button>
-
-          {/* Live TV Tile */}
-          <button
-            className="tesla-app-tile tile-livetv"
-            onClick={() => onNavigate("Live TV")}
-            title="Open Live TV"
-          >
-            <div className="app-tile-icon-wrap">
-              <LiveTvLogo />
-            </div>
-            <span className="app-tile-label">Live TV</span>
-          </button>
-        </div>
-      </section>
-
-      {/* 3. Live Now Row (BBC News, NBA, F1) */}
-      <section className="tesla-content-carousel-section">
-        <div className="carousel-header-row" onClick={() => onNavigate("Live TV")}>
-          <div className="carousel-title-group">
-            <h3 className="carousel-title">Live Now</h3>
-            <ChevronRight size={18} className="chevron-link" />
-          </div>
-        </div>
-
-        <div className="tesla-widescreen-scroller">
-          {liveNowCards.map((card) => (
-            <div
-              key={card.id}
-              className="tesla-broadcast-card"
-              onClick={() => handlePlayItem(card.title, card.subtitle, card.url, undefined, card.image)}
+          <div className="watch-rail-actions">
+            <button className="watch-text-link" onClick={() => onNavigate("Stremio")}>
+              Browse all <ArrowUpRight size={16} />
+            </button>
+            <button
+              className="watch-icon-button"
+              aria-label="Scroll movies left"
+              onClick={() => rail.current?.scrollBy({ left: -600, behavior: "smooth" })}
             >
-              <div className="broadcast-thumb-box">
-                <img src={card.image} alt={card.title} loading="lazy" />
-                <span className="live-pill-tag">
-                  <span className="live-dot-pulse" /> LIVE
-                </span>
-                <span className="channel-network-pill">{card.network}</span>
-                <div className="play-overlay-hover">
-                  <Play size={32} fill="currentColor" />
-                </div>
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              className="watch-icon-button"
+              aria-label="Scroll movies right"
+              onClick={() => rail.current?.scrollBy({ left: 600, behavior: "smooth" })}
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        </div>
+        <div className="watch-movie-rail watch-poster-rail" ref={rail}>
+          {movies.map(movie => (
+            <button className="watch-movie" key={movie.id} onClick={() => onOpenMovie(movie)}>
+              <div className="watch-movie-art">
+                <Artwork src={movie.poster || movie.background} />
+                <span className="watch-card-source"><StremioLogo /></span>
+                <span className="watch-card-play"><Play size={21} fill="currentColor" /></span>
               </div>
-              <div className="broadcast-meta-box">
-                <h4>{card.title}</h4>
-                <p>{card.subtitle}</p>
-              </div>
-            </div>
+              <strong>{movie.name}</strong>
+              <small>{[movie.year, movie.genres?.[0] || "Movie"].filter(Boolean).join(" · ")}</small>
+            </button>
           ))}
         </div>
       </section>
 
-      {/* 4. Recommended for You Row (Fallout, Top Gear, The Bear, House of the Dragon) */}
-      <section className="tesla-content-carousel-section">
-        <div className="carousel-header-row" onClick={() => onNavigate("Stremio")}>
-          <div className="carousel-title-group">
-            <h3 className="carousel-title">Recommended for You</h3>
-            <ChevronRight size={18} className="chevron-link" />
-          </div>
-        </div>
-
-        <div className="tesla-widescreen-scroller">
-          {recommendedCards.map((card) => (
-            <div
-              key={card.id}
-              className="tesla-poster-card"
-              onClick={() => handlePlayItem(card.title, card.genre, undefined, card.youtubeId, card.image)}
-            >
-              <div className="poster-thumb-box">
-                <img src={card.image} alt={card.title} loading="lazy" />
-                <span
-                  className="platform-badge-pill"
-                  style={{
-                    color: card.platformColor,
-                    borderColor: `${card.platformColor}55`,
-                    background: `${card.platformColor}18`,
-                  }}
-                >
-                  {card.platform}
-                </span>
-                <div className="play-overlay-hover">
-                  <Play size={32} fill="currentColor" />
-                </div>
-              </div>
-              <div className="poster-meta-box">
-                <h4>{card.title}</h4>
-                <p>{card.genre}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* 5. Continue Watching Row (from the Model 3 touchscreen in reference) */}
-      <section className="tesla-content-carousel-section continue-watching-section">
-        <div className="carousel-header-row" onClick={() => onNavigate("Favorites")}>
-          <div className="carousel-title-group">
-            <h3 className="carousel-title">Continue Watching</h3>
-            <ChevronRight size={18} className="chevron-link" />
-          </div>
-        </div>
-
-        <div className="tesla-widescreen-scroller">
-          {continueWatchingCards.map((card) => (
-            <div
-              key={card.id}
-              className="tesla-poster-card"
-              onClick={() => handlePlayItem(card.title, card.platform, undefined, card.youtubeId, card.image)}
-            >
-              <div className="poster-thumb-box">
-                <img src={card.image} alt={card.title} loading="lazy" />
-                <span
-                  className="platform-badge-pill"
-                  style={{
-                    color: card.platformColor,
-                    borderColor: `${card.platformColor}55`,
-                    background: `${card.platformColor}20`,
-                  }}
-                >
-                  {card.platform}
-                </span>
-                <div className="play-overlay-hover">
-                  <Play size={32} fill="currentColor" />
-                </div>
-              </div>
-              <div className="poster-meta-box">
-                <h4>{card.title}</h4>
-                <p>{card.platform}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+      <div className="watch-footer">
+        <span><span className="watch-footer-brand">VOLTA</span> Movie nights. Upgraded.</span>
+        <button onClick={() => onNavigate("Favorites")}>
+          Your saved favorites <ChevronRight size={14} />
+        </button>
+      </div>
     </div>
   );
 }
