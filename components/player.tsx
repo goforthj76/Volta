@@ -58,6 +58,7 @@ export default function Player({
   const [controlsVisible, setControlsVisible] = useState(true);
   const [waiting, setWaiting] = useState(false);
   const [useOfficialEmbed, setUseOfficialEmbed] = useState(Boolean(media.youtubeId));
+  const [audioModalOpen, setAudioModalOpen] = useState(false);
 
   const lastSave = useRef(0);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -170,11 +171,19 @@ export default function Player({
     return () => window.removeEventListener("volta-dock-volume", handleDockVolume);
   }, []);
 
+  const forceUnmute = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = false;
+    if (v.volume === 0) v.volume = 1;
+    setVolume(v.volume);
+    setMuted(false);
+  }, []);
+
   const handleViewportClick = () => {
     const v = videoRef.current;
-    if (v && muted) {
-      v.muted = false;
-      setMuted(false);
+    if (v && (muted || v.muted)) {
+      forceUnmute();
       return;
     }
     togglePlay();
@@ -193,9 +202,11 @@ export default function Player({
     setError("");
     setWaiting(true);
     try {
+      v.volume = volume > 0 ? volume : 1;
       await v.play();
       setPlaying(true);
       setWaiting(false);
+      setMuted(false);
     } catch {
       // 1. Browsers restrict unmuted autoplay without prior user interaction.
       // Try playing muted automatically:
@@ -219,8 +230,11 @@ export default function Player({
     if (v.paused) {
       setError("");
       setWaiting(true);
+      v.volume = volume > 0 ? volume : 1;
       v.play()
         .then(() => {
+          v.muted = false;
+          setMuted(false);
           setPlaying(true);
           setWaiting(false);
         })
@@ -240,7 +254,7 @@ export default function Player({
       v.pause();
       setPlaying(false);
     }
-  }, []);
+  }, [volume]);
 
   const seek = (seconds: number) => {
     const v = videoRef.current;
@@ -259,6 +273,10 @@ export default function Player({
     if (!v) return;
     v.muted = !v.muted;
     setMuted(v.muted);
+    if (!v.muted && v.volume === 0) {
+      v.volume = 1;
+      setVolume(1);
+    }
   };
 
   const handleVolumeChange = (newVol: number) => {
@@ -266,7 +284,7 @@ export default function Player({
     if (!v) return;
     v.volume = newVol;
     setVolume(newVol);
-    if (newVol > 0 && v.muted) {
+    if (newVol > 0) {
       v.muted = false;
       setMuted(false);
     }
@@ -456,6 +474,16 @@ export default function Player({
             </button>
           )}
 
+          {/* Audio Diagnostics & Codec Assistant */}
+          <button
+            className="mode-toggle-btn audio-diag-btn"
+            onClick={() => setAudioModalOpen(true)}
+            title="Audio settings, unmuting, and codec fix"
+          >
+            <Volume2 size={16} />
+            <span>Sound / Codec</span>
+          </button>
+
           <button
             className={`icon-button ${isFavorite ? "favorite-active" : ""}`}
             onClick={onFavorite}
@@ -516,7 +544,22 @@ export default function Player({
             onCanPlay={() => setWaiting(false)}
             onLoadedMetadata={() => {
               const v = videoRef.current;
-              if (v) setDuration(v.duration);
+              if (!v) return;
+              setDuration(v.duration);
+              // Audio track selection: if video has multiple audio tracks, prioritize AAC / stereo track
+              const anyVideo = v as unknown as { audioTracks?: Array<{ label?: string; language?: string; enabled: boolean }> };
+              if (anyVideo.audioTracks && anyVideo.audioTracks.length > 1) {
+                for (let i = 0; i < anyVideo.audioTracks.length; i++) {
+                  const t = anyVideo.audioTracks[i];
+                  const label = (t.label || t.language || "").toLowerCase();
+                  if (label.includes("aac") || label.includes("stereo") || label.includes("2.0") || label.includes("mp3")) {
+                    for (let j = 0; j < anyVideo.audioTracks.length; j++) {
+                      anyVideo.audioTracks[j].enabled = (j === i);
+                    }
+                    break;
+                  }
+                }
+              }
             }}
             onPlay={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
@@ -555,11 +598,11 @@ export default function Player({
               className="unmute-banner-pill"
               onClick={(e) => {
                 e.stopPropagation();
-                toggleMute();
+                forceUnmute();
               }}
             >
-              <VolumeX size={16} />
-              <span>Audio Muted · Tap to Unmute</span>
+              <VolumeX size={18} />
+              <span>🔇 AUDIO MUTED · TAP ANYWHERE TO UNMUTE 🔊</span>
             </button>
           )}
 
@@ -697,6 +740,95 @@ export default function Player({
             >
               {fullscreen ? <Minimize size={22} /> : <Maximize size={22} />}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Audio Diagnostics & Codec Assistant Modal */}
+      {audioModalOpen && (
+        <div className="audio-modal-overlay" onClick={() => setAudioModalOpen(false)}>
+          <div className="audio-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="audio-modal-header">
+              <div className="audio-icon-wrap">
+                <Volume2 size={24} />
+              </div>
+              <div className="audio-header-text">
+                <h3>Audio Diagnostics & Sound Fix</h3>
+                <p>Troubleshoot silent streams in Chrome & Tesla</p>
+              </div>
+              <button className="icon-button close-btn" onClick={() => setAudioModalOpen(false)} aria-label="Close dialog">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="audio-status-box">
+              <div className="audio-status-row">
+                <span>Sound Output:</span>
+                <strong style={{ color: muted ? "#f87171" : "#4ade80" }}>
+                  {muted ? "MUTED (Browser Autoplay Policy)" : `UNMUTED (${Math.round(volume * 100)}% Volume)`}
+                </strong>
+              </div>
+              <div className="audio-status-row">
+                <span>Playback Mode:</span>
+                <strong>{inMotionMode ? "Passenger Driving Canvas" : "Parked Native Video"}</strong>
+              </div>
+              <div className="audio-status-row">
+                <span>Stream Source:</span>
+                <strong className="text-truncate">{media.source} · {media.title}</strong>
+              </div>
+            </div>
+
+            <div className="audio-codec-explanation">
+              <h4>Why is Stremio silent in some browsers?</h4>
+              <p>
+                Chromium browsers (Google Chrome, Edge, and Tesla) <strong>do not include decoders</strong> for proprietary <strong>Dolby AC3, E-AC-3, or DTS 5.1</strong> audio formats due to licensing restrictions. When a stream uses AC3, the browser plays video smoothly but drops the audio.
+              </p>
+            </div>
+
+            <div className="audio-actions-list">
+              <button
+                className="audio-action-btn primary"
+                onClick={() => {
+                  forceUnmute();
+                  setAudioModalOpen(false);
+                }}
+              >
+                <Volume2 size={18} />
+                <span>Force Unmute & Set Max Volume (100%)</span>
+              </button>
+
+              {media.youtubeId && (
+                <button
+                  className="audio-action-btn accent"
+                  onClick={() => {
+                    setUseOfficialEmbed(true);
+                    setAudioModalOpen(false);
+                  }}
+                >
+                  <Tv size={18} />
+                  <span>Switch to Cinema Preview (Guaranteed Sound)</span>
+                </button>
+              )}
+
+              {media.url && (
+                <button
+                  className="audio-action-btn secondary"
+                  onClick={() => {
+                    if (typeof navigator !== "undefined" && navigator.clipboard) {
+                      void navigator.clipboard.writeText(media.url || "");
+                      alert("Stream URL copied! Open VLC media player or the Stremio Desktop app and press Ctrl+V to stream with full 5.1 surround sound.");
+                    }
+                  }}
+                >
+                  <Play size={18} />
+                  <span>Copy Stream URL for VLC / Stremio App (Dolby 5.1)</span>
+                </button>
+              )}
+
+              <button className="audio-action-btn dismiss" onClick={() => setAudioModalOpen(false)}>
+                Dismiss
+              </button>
+            </div>
           </div>
         </div>
       )}

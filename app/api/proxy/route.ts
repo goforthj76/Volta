@@ -98,10 +98,10 @@ export async function GET(req: NextRequest) {
     }
 
     // For video chunks (.ts, .m4s, .mp4, etc.), stream with Range and CORS headers
-    const blob = await upstreamRes.blob();
     const outHeaders: Record<string, string> = {
       "Content-Type": contentType || "video/mp2t",
       "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
       "Access-Control-Allow-Headers": "*",
       "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
       "Accept-Ranges": "bytes",
@@ -114,7 +114,9 @@ export async function GET(req: NextRequest) {
       outHeaders["Content-Length"] = upstreamRes.headers.get("content-length")!;
     }
 
-    return new NextResponse(blob, {
+    // Stream body directly without buffering entire multi-gigabyte video into memory
+    const streamBody = upstreamRes.body;
+    return new NextResponse(streamBody, {
       status: upstreamRes.status,
       headers: outHeaders,
     });

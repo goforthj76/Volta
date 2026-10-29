@@ -14,6 +14,7 @@ import {
   X,
   LoaderCircle,
   Info,
+  Volume2,
 } from "lucide-react";
 import {
   StremioMeta,
@@ -25,6 +26,72 @@ import {
 } from "@/lib/stremio";
 import { Media } from "@/lib/media";
 import { readLocal, writeLocal } from "@/lib/storage";
+
+export function getAudioProfile(stream: StremioStream): {
+  isAac: boolean;
+  isDolby: boolean;
+  label: string;
+  badgeClass: string;
+  icon: string;
+  sortRank: number;
+} {
+  if (stream.ytId) {
+    return {
+      isAac: true,
+      isDolby: false,
+      label: "Cinema Audio (Full Sound)",
+      badgeClass: "stream-audio-aac",
+      icon: "🔊",
+      sortRank: 0,
+    };
+  }
+
+  const text = `${stream.title || ""} ${stream.name || ""}`.toUpperCase();
+  const hasAac = /\b(AAC|AAC2\.0|AAC5\.1|MP3|STEREO|OPUS)\b/.test(text) || text.includes("AAC");
+  const hasDolby = /\b(AC3|AC-3|EAC3|E-AC-3|DDP|DDP5\.1|DOLBY|ATMOS|TRUEHD|DTS|DTS-HD)\b/.test(text) || text.includes("DDP") || text.includes("AC3");
+
+  if (hasAac && !hasDolby) {
+    return {
+      isAac: true,
+      isDolby: false,
+      label: "AAC Stereo · Web Audio",
+      badgeClass: "stream-audio-aac",
+      icon: "🔊",
+      sortRank: 1,
+    };
+  }
+
+  if (hasAac && hasDolby) {
+    return {
+      isAac: true,
+      isDolby: true,
+      label: "Multi-Audio (AAC Track)",
+      badgeClass: "stream-audio-multi",
+      icon: "🎛️",
+      sortRank: 2,
+    };
+  }
+
+  if (hasDolby) {
+    return {
+      isAac: false,
+      isDolby: true,
+      label: "Dolby 5.1 (AC3 / External Player)",
+      badgeClass: "stream-audio-dolby",
+      icon: "⚠️",
+      sortRank: 4,
+    };
+  }
+
+  return {
+    isAac: false,
+    isDolby: false,
+    label: "Web Stream",
+    badgeClass: "stream-audio-standard",
+    icon: "🎬",
+    sortRank: 3,
+  };
+}
 
 export default function StremioView({
   onPlay,
@@ -228,9 +295,15 @@ export default function StremioView({
         }),
       });
       const data = (await res.json()) as { streams?: StremioStream[] };
-      let list = (data.streams || []).filter(stream => stream.url?.startsWith("http://") || stream.url?.startsWith("https://") || (stream.ytId && /^[\w-]{11}$/.test(stream.ytId)));
+      let list = (data.streams || []).filter(
+        (stream) =>
+          stream.url?.startsWith("http://") ||
+          stream.url?.startsWith("https://") ||
+          Boolean(stream.infoHash) ||
+          (stream.ytId && /^[\w-]{11}$/.test(stream.ytId))
+      );
 
-      // If Cinemeta has trailer streams, add it as a verified working option
+      // If Cinemeta has trailer streams, add it as a verified working option with guaranteed audio
       const activeItem = metaObj;
       if (activeItem) {
         const trailerYt =
@@ -239,14 +312,21 @@ export default function StremioView({
         if (trailerYt && !list.some((s) => s.ytId === trailerYt)) {
           list = [
             {
-              name: "Cinema Trailer",
-              title: `${activeItem.name} — Official Trailer / Preview`,
+              name: "Cinema Preview",
+              title: `${activeItem.name} — Cinema Trailer (AAC Stereo Audio)`,
               ytId: trailerYt,
             },
             ...list,
           ];
         }
       }
+
+      // Sort streams so that verified AAC audio and web-ready streams are listed first!
+      list.sort((a, b) => {
+        const rankA = getAudioProfile(a).sortRank;
+        const rankB = getAudioProfile(b).sortRank;
+        return rankA - rankB;
+      });
 
       setStreams(list);
     } catch {
@@ -300,18 +380,29 @@ export default function StremioView({
       }
     }
 
-    const rawUrl = stream.url || (stream.infoHash ? `http://127.0.0.1:11470/${stream.infoHash}/0` : undefined);
-    const streamUrl = rawUrl?.startsWith("http://") ? `/api/proxy?url=${encodeURIComponent(rawUrl)}` : rawUrl;
-    if (!streamUrl && !stream.ytId) return;
+    const trailerYt =
+      stream.ytId ||
+      selectedMeta.trailerStreams?.[0]?.ytId ||
+      selectedMeta.trailers?.find((t) => t.source)?.source;
 
+    const rawUrl = stream.url || (stream.infoHash ? `http://127.0.0.1:11470/${stream.infoHash}/0` : undefined);
+    const isLocalhost = rawUrl?.includes("127.0.0.1") || rawUrl?.includes("localhost");
+    // Only route external http:// streams through /api/proxy, not localhost
+    const streamUrl = (rawUrl?.startsWith("http://") && !isLocalhost)
+      ? `/api/proxy?url=${encodeURIComponent(rawUrl)}`
+      : rawUrl;
+
+    if (!streamUrl && !trailerYt) return;
+
+    const audioInfo = getAudioProfile(stream);
     const media: Media = {
       id: `stremio-${selectedMeta.id}-${Date.now()}`,
       title,
-      subtitle: stream.title || stream.name || "Stremio Stream",
+      subtitle: `${stream.title || stream.name || "Stremio Stream"} [${audioInfo.label}]`,
       source: "Stremio",
       image: selectedMeta.background || selectedMeta.poster || "/art/space.jpg",
       url: streamUrl,
-      youtubeId: stream.ytId,
+      youtubeId: trailerYt,
     };
 
     setSelectedMeta(null);
@@ -663,43 +754,59 @@ export default function StremioView({
                     )}
                   </div>
                 ) : (
-                  <div className="streams-list">
-                    {streams.map((stream, idx) => {
-                      const isDirect = Boolean(stream.url);
-                      const isYt = Boolean(stream.ytId);
-                      return (
-                        <button
-                          key={idx}
-                          className="stream-item-btn"
-                          onClick={() => playStream(stream)}
-                        >
-                          <Play size={18} className="stream-play-icon" />
-                          <div className="stream-info-text">
-                            <span className="stream-title">{stream.title || stream.name || "Direct Stream"}</span>
-                            <span className="stream-name-tag">{stream.name || "Web Source"}</span>
+                  <>
+                    <div className="stremio-audio-tip-banner">
+                      <Volume2 size={16} className="tip-icon" />
+                      <span>
+                        <strong>Sound Notice:</strong> Browsers (Chrome, Edge, Tesla) only decode <strong>AAC / Stereo</strong> audio. Streams with <strong>[AAC Web Audio]</strong> or <strong>Cinema Preview</strong> have verified sound. Dolby AC3/DDP 5.1 may require VLC or external player.
+                      </span>
+                    </div>
+
+                    <div className="streams-list">
+                      {streams.map((stream, idx) => {
+                        const audioInfo = getAudioProfile(stream);
+                        const isDirect = Boolean(stream.url);
+                        const isYt = Boolean(stream.ytId);
+                        return (
+                          <div key={idx} className="stream-card-row">
+                            <button
+                              className="stream-item-btn"
+                              onClick={() => playStream(stream)}
+                            >
+                              <Play size={18} className="stream-play-icon" />
+                              <div className="stream-info-text">
+                                <span className="stream-title">{stream.title || stream.name || "Direct Stream"}</span>
+                                <div className="stream-tags-row">
+                                  <span className="stream-name-tag">{stream.name || "Web Source"}</span>
+                                  <span className={`stream-audio-badge ${audioInfo.badgeClass}`}>
+                                    {audioInfo.icon} {audioInfo.label}
+                                  </span>
+                                </div>
+                              </div>
+                              <span
+                                className="stream-badge"
+                                style={{
+                                  background: isDirect
+                                    ? "rgba(34, 197, 94, 0.2)"
+                                    : isYt
+                                      ? "rgba(59, 130, 246, 0.2)"
+                                      : "rgba(245, 158, 11, 0.2)",
+                                  color: isDirect ? "#4ade80" : isYt ? "#60a5fa" : "#fbbf24",
+                                  borderColor: isDirect
+                                    ? "rgba(34, 197, 94, 0.4)"
+                                    : isYt
+                                      ? "rgba(59, 130, 246, 0.4)"
+                                      : "rgba(245, 158, 11, 0.4)",
+                                }}
+                              >
+                                {isDirect ? "DIRECT" : isYt ? "CINEMA AUDIO" : "SERVER"}
+                              </span>
+                            </button>
                           </div>
-                          <span
-                            className="stream-badge"
-                            style={{
-                              background: isDirect
-                                ? "rgba(34, 197, 94, 0.2)"
-                                : isYt
-                                  ? "rgba(239, 68, 68, 0.2)"
-                                  : "rgba(245, 158, 11, 0.2)",
-                              color: isDirect ? "#4ade80" : isYt ? "#f87171" : "#fbbf24",
-                              borderColor: isDirect
-                                ? "rgba(34, 197, 94, 0.4)"
-                                : isYt
-                                  ? "rgba(239, 68, 68, 0.4)"
-                                  : "rgba(245, 158, 11, 0.4)",
-                            }}
-                          >
-                            {isDirect ? "DIRECT" : isYt ? "YOUTUBE" : "DEBRID / SERVER"}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
               </div>
             </div>
