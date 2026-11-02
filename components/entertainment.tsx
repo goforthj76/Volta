@@ -55,6 +55,7 @@ import YouTubeView from "./youtube-view";
 import StremioView from "./stremio-view";
 import IptvView from "./iptv-view";
 import StreamingAppPortal from "./streaming-app-portal";
+import SlingApp from "./sling-app";
 import TeslaDock from "./tesla-dock";
 import { Crown } from "lucide-react";
 import SecretMenu from "./secret-menu";
@@ -767,9 +768,11 @@ export default function Entertainment() {
             <YouTubeView onPlay={play} />
           ) : (page === "Stremio" || page === "Streaming") && results === null ? (
             <StremioView onPlay={play} initialItem={dashboardMovie} />
-          ) : (page === "Fubo" || page === "Sling") && results === null ? (
+          ) : page === "Sling" && results === null ? (
+            <SlingApp onStartPlayback={closePlayer} />
+          ) : page === "Fubo" && results === null ? (
             <StreamingAppPortal
-              provider={page === "Fubo" ? "fubo" : "sling"}
+              provider="fubo"
               onPlay={play}
               onOpenLiveTv={() => navigate("Free Live TV")}
             />
