@@ -633,7 +633,7 @@ export default function Entertainment() {
             { id: "Home", label: "Home" },
             { id: "YouTube", label: "YouTube" },
             { id: "Stremio", label: "Stremio" },
-            { id: "Live TV", label: "Live TV", hasLive: true },
+            { id: "Free Live TV", label: "Free Live TV", hasLive: true },
             { id: "Fubo", label: "Fubo", hasLive: true },
             { id: "Sling", label: "Sling", hasLive: true },
             { id: "Favorites", label: "My List" },
@@ -771,9 +771,9 @@ export default function Entertainment() {
             <StreamingAppPortal
               provider={page === "Fubo" ? "fubo" : "sling"}
               onPlay={play}
-              onOpenLiveTv={() => navigate("Live TV")}
+              onOpenLiveTv={() => navigate("Free Live TV")}
             />
-          ) : page === "Live TV" && results === null ? (
+          ) : (page === "Free Live TV" || page === "Live TV") && results === null ? (
             <IptvView onPlay={play} initialProvider="all" />
           ) : page === "Settings" ? (
             <div className="inner-page">

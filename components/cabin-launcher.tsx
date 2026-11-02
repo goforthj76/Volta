@@ -254,11 +254,11 @@ export default function CabinLauncher({
               <ArrowUpRight className="watch-app-arrow" size={21} />
             </button>
             <button
-              aria-label="Open Live TV"
+              aria-label="Open Free Live TV"
               className="watch-app watch-app-tv"
-              onClick={() => onNavigate("Live TV")}
+              onClick={() => onNavigate("Free Live TV")}
             >
-              <span className="watch-app-logo"><Tv /><strong>Live TV</strong><span className="watch-live-dot" /></span>
+              <span className="watch-app-logo"><Tv /><strong>Free Live TV</strong><span className="watch-live-dot" /></span>
               <ArrowUpRight className="watch-app-arrow" size={21} />
             </button>
           </div>
