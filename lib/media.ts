@@ -4,6 +4,7 @@ export type Media = {
   subtitle: string;
   image: string;
   source: "YouTube" | "Live TV" | "Stremio" | "Volta";
+  provider?: "all" | "fubo" | "sling" | "free" | string;
   url?: string;
   youtubeId?: string;
   progress?: number;

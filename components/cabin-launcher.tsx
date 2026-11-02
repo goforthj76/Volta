@@ -32,6 +32,31 @@ function StremioLogo() {
   return <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 2 46 24 24 46 2 24Z" fill="white" opacity=".22"/><path d="m19 12 18 12-18 12Z" fill="white"/><path d="m11 17 8-5v24l-8-5Z" fill="white" opacity=".55"/></svg>;
 }
 
+function FuboLogo() {
+  return (
+    <svg viewBox="0 0 100 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M4 2h14v5H9v4h8v5H9v10H4V2z" fill="#ff5900"/>
+      <path d="M22 2h5v15c0 3.3 2.2 5 5 5s5-1.7 5-5V2h5v15c0 6.6-4.4 10-10 10s-10-3.4-10-10V2z" fill="#ff5900"/>
+      <path d="M41 2h10c4.5 0 8 3 8 7.5 0 2.5-1.2 4.6-3 5.8 2.6 1.1 4.5 3.5 4.5 6.7 0 5-4 8-9.5 8H41V2zm5 5v5h4.5c1.8 0 3.2-1.1 3.2-2.5S52.3 7 50.5 7H46zm0 9v7h5c2.1 0 3.8-1.4 3.8-3.5S53.1 16 51 16H46z" fill="#ff5900"/>
+      <path d="M74 2c7.2 0 13 5.8 13 13s-5.8 13-13 13-13-5.8-13-13 5.8-13 13-13zm0 5c-4.4 0-8 3.6-8 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8z" fill="#ff5900"/>
+    </svg>
+  );
+}
+
+function SlingLogo() {
+  return (
+    <svg viewBox="0 0 105 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="10" cy="9" r="6" fill="#ffaa00"/>
+      <circle cx="10" cy="23" r="6" fill="#00a3e0"/>
+      <path d="M28 7c-4 0-7 2-7 5.5 0 6 12 3.5 12 9.5 0 3.5-3 5-7 5-4.5 0-8-2-8-5.5h-4c0 6 5.5 9.5 12 9.5 6.5 0 11-3.5 11-9 0-6.5-12-4-12-10 0-3 2.5-4.5 6.5-4.5 3.5 0 7 1.5 7 4.5h4C45 8.5 40 7 28 7z" fill="#ffffff"/>
+      <path d="M50 2h4v27h-4V2z" fill="#ffffff"/>
+      <path d="M59 2h4v5h-4V2zm0 8h4v19h-4V10z" fill="#ffffff"/>
+      <path d="M68 10h4v3c1.2-2.2 3.5-3.5 6.5-3.5 5 0 8.5 3.8 8.5 9.5V29h-4V19c0-3.5-2-5.5-5.5-5.5-3.5 0-5.5 2-5.5 5.5v10h-4V10z" fill="#ffffff"/>
+      <path d="M91 10h4v2.5c1.2-2 3.5-3 6-3 6.5 0 10.5 4.5 10.5 10s-4 10-10.5 10c-2.5 0-4.8-1-6-3V34h-4V10zm4 9.5c0 3.5 2.5 6 6 6s6-2.5 6-6-2.5-6-6-6-6 2.5-6 6z" fill="#ffffff"/>
+    </svg>
+  );
+}
+
 function YouTubeLogo() {
   return <svg viewBox="0 0 64 45" aria-hidden="true"><path d="M62.7 7A8 8 0 0 0 57 1.4C52 0 32 0 32 0S12 0 7 1.4A8 8 0 0 0 1.3 7C0 12 0 22.5 0 22.5S0 33 1.3 38A8 8 0 0 0 7 43.6C12 45 32 45 32 45s20 0 25-1.4a8 8 0 0 0 5.7-5.6C64 33 64 22.5 64 22.5S64 12 62.7 7Z" fill="#ff0033"/><path d="m26 13 17 9.5L26 32Z" fill="white"/></svg>;
 }
@@ -187,9 +212,9 @@ export default function CabinLauncher({
         </section>
 
         <aside className="watch-hub" aria-label="Your apps">
-          <div className="watch-section-heading">
+                    <div className="watch-section-heading">
             <div>
-              <h2>Your apps<span className="watch-app-count">03</span></h2>
+              <h2>Your apps<span className="watch-app-count">05</span></h2>
             </div>
             <button className="watch-icon-button" aria-label="Open settings" onClick={() => onNavigate("Settings")}>
               <Settings size={20} />
@@ -210,6 +235,22 @@ export default function CabinLauncher({
               onClick={() => onNavigate("YouTube")}
             >
               <span className="watch-app-logo"><YouTubeLogo /><strong>YouTube</strong></span>
+              <ArrowUpRight className="watch-app-arrow" size={21} />
+            </button>
+            <button
+              aria-label="Open Fubo TV"
+              className="watch-app watch-app-fubo"
+              onClick={() => onNavigate("Fubo")}
+            >
+              <span className="watch-app-logo"><FuboLogo /></span>
+              <ArrowUpRight className="watch-app-arrow" size={21} />
+            </button>
+            <button
+              aria-label="Open Sling TV"
+              className="watch-app watch-app-sling"
+              onClick={() => onNavigate("Sling")}
+            >
+              <span className="watch-app-logo"><SlingLogo /></span>
               <ArrowUpRight className="watch-app-arrow" size={21} />
             </button>
             <button

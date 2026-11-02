@@ -4266,6 +4266,97 @@ textarea {
   color: #ffffff;
 }
 
+/* Live TV Provider Switcher */
+.iptv-provider-switcher {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px 0 10px;
+}
+
+.provider-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #a1a1aa;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.provider-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.provider-tab-btn.active {
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.provider-tab-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fubo-tab-logo svg {
+  height: 18px;
+  width: auto;
+}
+
+.sling-tab-logo svg {
+  height: 18px;
+  width: auto;
+}
+
+.provider-tab-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.channel-tags-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.channel-provider-tag {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+}
+
+.provider-select-dropdown {
+  width: 100%;
+  padding: 12px 14px;
+  background: #0f1110;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 14px;
+  outline: none;
+}
+
+.provider-select-dropdown:focus {
+  border-color: #38bdf8;
+}
+
 .iptv-categories {
   display: flex;
   gap: 10px;

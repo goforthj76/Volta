@@ -633,6 +633,8 @@ export default function Entertainment() {
             { id: "YouTube", label: "YouTube" },
             { id: "Stremio", label: "Stremio" },
             { id: "Live TV", label: "Live TV", hasLive: true },
+            { id: "Fubo", label: "Fubo", hasLive: true },
+            { id: "Sling", label: "Sling", hasLive: true },
             { id: "Favorites", label: "My List" },
           ].map((tab) => {
             const isActive =
@@ -764,8 +766,8 @@ export default function Entertainment() {
             <YouTubeView onPlay={play} />
           ) : (page === "Stremio" || page === "Streaming") && results === null ? (
             <StremioView onPlay={play} initialItem={dashboardMovie} />
-          ) : page === "Live TV" && results === null ? (
-            <IptvView onPlay={play} />
+          ) : (page === "Live TV" || page === "Fubo" || page === "Sling") && results === null ? (
+            <IptvView onPlay={play} initialProvider={page === "Fubo" ? "fubo" : page === "Sling" ? "sling" : "all"} />
           ) : page === "Settings" ? (
             <div className="inner-page">
               <div className="page-title">
