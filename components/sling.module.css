@@ -1,0 +1,206 @@
+.app {
+  padding: 28px;
+  max-width: 1500px;
+  margin: auto;
+  color: #f1f5f9;
+}
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.header h1 {
+  margin: 8px 0;
+  font-size: 28px;
+}
+.header p,
+.playerHeader p {
+  color: #a6b5c8;
+  margin: 8px 0;
+}
+.logo {
+  width: 110px;
+  height: 44px;
+  object-fit: contain;
+  object-position: left;
+}
+.notice {
+  background: #112331;
+  border: 1px solid #22516a;
+  border-radius: 12px;
+  padding: 16px;
+  line-height: 1.6;
+}
+.search {
+  display: grid;
+  gap: 9px;
+  margin: 24px 0 12px;
+}
+.search input {
+  width: 100%;
+  padding: 15px;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  background: #111923;
+  color: #f1f5f9;
+}
+.feedback {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #acbdd0;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+  padding-bottom: 30px;
+}
+.channel {
+  min-width: 0;
+  text-align: left;
+  background: #111a25;
+  border: 1px solid #26374a;
+  border-radius: 14px;
+  overflow: hidden;
+  padding: 0 0 16px;
+}
+.channel:hover {
+  background: #172a3c;
+  border-color: #2bb5ea;
+}
+.channel:focus-visible,
+.secondary:focus-visible,
+.search input:focus-visible {
+  outline: 3px solid #43c8ff;
+  outline-offset: 3px;
+}
+.channel strong,
+.channel > span {
+  display: block;
+  margin: 10px 14px 0;
+  overflow-wrap: anywhere;
+}
+.channel > span {
+  color: #a6b5c8;
+  font-size: 12px;
+}
+.channelArt {
+  height: 116px;
+  position: relative;
+  background: linear-gradient(135deg, #152e45, #0a111a);
+  padding: 18px;
+}
+.channelArt img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.live {
+  display: inline-block;
+  color: #7edaff;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+.channelArt .live {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  background: #071522;
+  padding: 4px 6px;
+  border-radius: 5px;
+}
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid #47627d;
+  border-radius: 10px;
+  background: #172a3c;
+  color: #f1f5f9;
+  text-align: center;
+}
+.dialog {
+  width: min(1100px, 96vw);
+  max-height: 94dvh;
+  overflow: auto;
+  background: #0e1722;
+  color: #f1f5f9;
+  border: 1px solid #35516b;
+  border-radius: 18px;
+  padding: 20px;
+}
+.dialog::backdrop {
+  background: #02060de8;
+}
+.playerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.playerHeader h2 {
+  margin: 8px 0;
+  font-size: 24px;
+}
+.viewport {
+  background: #000;
+  aspect-ratio: 16/9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.viewport video {
+  width: 100%;
+  height: 100%;
+  max-height: 70dvh;
+}
+.viewport:fullscreen video {
+  max-height: none;
+}
+.playerFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 12px;
+}
+.playerFooter p {
+  line-height: 1.5;
+  color: #c1d2e3;
+}
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  .app {
+    padding: 18px 12px;
+  }
+  .header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .channelArt {
+    height: 96px;
+  }
+  .dialog {
+    padding: 12px;
+  }
+  .playerFooter {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
