@@ -51,7 +51,7 @@ export const fuboPresetChannels: Media[] = [
     group: "Sports",
     source: "Live TV",
     provider: "fubo",
-    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/Fubo_Sports_Network_logo.svg/320px-Fubo_Sports_Network_logo.svg.png",
+    image: "https://p-img.movetv.com/1280x720/7e81634f07da663019d668e9aa6ffbfc.png",
     url: "https://dnf08l6u6uxnz.cloudfront.net/master.m3u8",
   },
   {
@@ -61,7 +61,7 @@ export const fuboPresetChannels: Media[] = [
     group: "Sports",
     source: "Live TV",
     provider: "fubo",
-    image: "https://upload.wikimedia.org/wikipedia/en/thumb/5/53/Stadium_%28sports_network%29_logo.svg/320px-Stadium_%28sports_network%29_logo.svg.png",
+    image: "/stadium-logo.svg",
     url: "https://wurl120sports.global.transmit.live/hls/679a907dce42a042c23ace37/v1/stadium_gracenote/samsung_us/latest/main/hls/playlist.m3u8",
   },
   {
@@ -71,7 +71,7 @@ export const fuboPresetChannels: Media[] = [
     group: "Sports",
     source: "Live TV",
     provider: "fubo",
-    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/SportsGrid_logo.svg/320px-SportsGrid_logo.svg.png",
+    image: "https://p-img.movetv.com/cms/images/d59e5fba6d605c9c8b8ec012c238898a7b8552d6.png",
     url: "https://sportsgrid-tribal.amagi.tv/playlist.m3u8",
   },
   {
@@ -81,7 +81,7 @@ export const fuboPresetChannels: Media[] = [
     group: "Sports",
     source: "Live TV",
     provider: "fubo",
-    image: "https://upload.wikimedia.org/wikipedia/en/thumb/8/87/World_Poker_Tour_logo.svg/320px-World_Poker_Tour_logo.svg.png",
+    image: "https://p-img.movetv.com/cms/images/78a3990255dbbb4e0690755cd4c5efc8fe66d69f.png",
     url: "https://d2e00kr7m9coe4.cloudfront.net/scheduler/scheduleMaster/406.m3u8",
   },
   {
@@ -91,7 +91,7 @@ export const fuboPresetChannels: Media[] = [
     group: "Sports",
     source: "Live TV",
     provider: "fubo",
-    image: "https://images.redbull.com/shape:fill,width:320,height:180/redbullcom/2020/6/17/i9gqg2p9h1wvvqg5fqb8/red-bull-tv-logo",
+    image: "/redbull-logo.svg",
     url: "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8",
   },
 ];
@@ -105,7 +105,7 @@ export const slingPresetChannels: Media[] = [
     group: "News",
     source: "Live TV",
     provider: "sling",
-    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/63/ABC_News_Live_logo_2021.svg/320px-ABC_News_Live_logo_2021.svg.png",
+    image: "https://p-img.movetv.com/cms/images/9c9407a0ce3dc37b64d99077f0088d3f6cb8c4a8.png",
     url: "https://abcnews-streams.akamaized.net/hls/live/2023560/abcnewshudson1/master.m3u8",
   },
   {
@@ -115,7 +115,7 @@ export const slingPresetChannels: Media[] = [
     group: "News",
     source: "Live TV",
     provider: "sling",
-    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/CBS_News_247_logo.svg/320px-CBS_News_247_logo.svg.png",
+    image: "https://images.pluto.tv/channels/6350fdd266e9ea0007bedec5/colorLogoPNG.png",
     url: "https://jmp2.uk/plu-6350fdd266e9ea0007bedec5.m3u8",
   },
   {
@@ -125,7 +125,7 @@ export const slingPresetChannels: Media[] = [
     group: "News",
     source: "Live TV",
     provider: "sling",
-    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Cheddar_News_2021_logo.svg/320px-Cheddar_News_2021_logo.svg.png",
+    image: "https://p-img.movetv.com/cms/images/7e4ab4a82bec747831154b7b077d0f7398fddeef.png",
     url: "https://hls.livecdn.io/cheddar.com/cheddar/playlist.m3u8",
   },
   {
@@ -135,7 +135,7 @@ export const slingPresetChannels: Media[] = [
     group: "News",
     source: "Live TV",
     provider: "sling",
-    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/WeatherNation_Logo.svg/320px-WeatherNation_Logo.svg.png",
+    image: "https://p-img.movetv.com/images/769138892de20c374bd6fcc75f0a14009de6f7a2",
     url: "https://d2ferbiwcx1539.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-8zd06wicndthf-ssai-prd/WNNationalSamsung/WNNationalSamsung.m3u8",
   },
   {
@@ -155,7 +155,7 @@ export const slingPresetChannels: Media[] = [
     group: "Entertainment",
     source: "Live TV",
     provider: "sling",
-    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Film_reel_icon.svg/320px-Film_reel_icon.svg.png",
+    image: "https://b-img.movetv.com/1280x720/66935242505f17b87bdafd710c54b86c.png",
     url: "https://d1j2u714xk898n.cloudfront.net/scheduler/scheduleMaster/145.m3u8",
   },
 ];
@@ -171,7 +171,7 @@ export const defaultChannels: Media[] = [
     group: "Tech & Space",
     source: "Live TV",
     provider: "free",
-    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/NASA_logo.svg/320px-NASA_logo.svg.png",
+    image: "/nasa-logo.svg",
     url: "https://ntv1.akamaized.net/hls/live/2014075/NASA-NTV1-HLS/master.m3u8",
   },
   {

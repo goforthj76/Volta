@@ -483,14 +483,20 @@ export default function IptvView({
                     {/* Left: Channel Identity */}
                     <div className="col-channel">
                       <div className="epg-channel-badge">
-                        <img
-                          src={channel.image || "/art/hero.jpg"}
-                          alt={channel.title}
-                          loading="lazy"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = "/art/hero.jpg";
-                          }}
-                        />
+                        {channel.image ? (
+                          <img
+                            src={channel.image}
+                            alt={channel.title}
+                            loading="lazy"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = "none";
+                            }}
+                          />
+                        ) : (
+                          <span style={{ fontSize: "11px", fontWeight: "800", color: "#34d399" }}>
+                            {channel.title.slice(0, 3).toUpperCase()}
+                          </span>
+                        )}
                       </div>
                       <div className="epg-channel-text">
                         <div className="channel-tags-row">
@@ -573,15 +579,37 @@ export default function IptvView({
                 className="channel-card"
                 onClick={() => onPlay(channel)}
               >
-                <div className="channel-logo-wrapper">
-                  <img
-                    src={channel.image || "/art/hero.jpg"}
-                    alt={channel.title}
-                    loading="lazy"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = "/art/hero.jpg";
+                <div className="channel-logo-wrapper" style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "#0b0e14", padding: "10px" }}>
+                  {channel.image ? (
+                    <img
+                      src={channel.image}
+                      alt={channel.title}
+                      loading="lazy"
+                      style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = "none";
+                        const fallback = target.parentElement?.querySelector(".grid-logo-fallback") as HTMLElement;
+                        if (fallback) fallback.style.display = "flex";
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className="grid-logo-fallback"
+                    style={{
+                      display: channel.image ? "none" : "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "100%",
+                      height: "100%",
+                      color: "#34d399",
+                      fontWeight: 800,
+                      fontSize: "16px",
+                      letterSpacing: "1px",
                     }}
-                  />
+                  >
+                    {channel.title}
+                  </div>
                   <div className="channel-live-indicator">
                     <span className="live-pulse" />
                     <span>LIVE</span>

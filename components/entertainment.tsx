@@ -769,7 +769,7 @@ export default function Entertainment() {
           ) : (page === "Stremio" || page === "Streaming") && results === null ? (
             <StremioView onPlay={play} initialItem={dashboardMovie} />
           ) : page === "Sling" && results === null ? (
-            <SlingApp onStartPlayback={closePlayer} />
+            <SlingApp onStartPlayback={closePlayer} onPlayMedia={play} />
           ) : page === "Fubo" && results === null ? (
             <StreamingAppPortal
               provider="fubo"

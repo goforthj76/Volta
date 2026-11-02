@@ -118,14 +118,36 @@ export default function StreamingAppPortal({
                   className="portal-card"
                   onClick={() => onPlay(channel)}
                 >
-                  <div className="portal-card-thumb">
-                    <img
-                      src={channel.image || "/art/hero.jpg"}
-                      alt={channel.title}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "/art/hero.jpg";
+                  <div className="portal-card-thumb" style={{ background: "#0c1018", display: "flex", alignItems: "center", justifyContent: "center", padding: "12px" }}>
+                    {channel.image ? (
+                      <img
+                        src={channel.image}
+                        alt={channel.title}
+                        style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = "none";
+                          const fallback = target.parentElement?.querySelector(".portal-card-fallback") as HTMLElement;
+                          if (fallback) fallback.style.display = "flex";
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className="portal-card-fallback"
+                      style={{
+                        display: channel.image ? "none" : "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "6px",
+                        width: "100%",
+                        height: "100%",
                       }}
-                    />
+                    >
+                      <span style={{ fontSize: "18px", fontWeight: "800", color: brandColor, letterSpacing: "1px" }}>
+                        {channel.title}
+                      </span>
+                    </div>
                     <div className="channel-live-indicator">
                       <span className="live-pulse" />
                       <span>LIVE</span>
