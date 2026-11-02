@@ -196,9 +196,23 @@ export function createSlingService(fetcher: typeof fetch = fetch) {
       const protocol =
         request.headers.get("x-forwarded-proto")?.split(",")[0].trim() ||
         url.protocol.slice(0, -1);
-      const expectedOrigin = `${protocol}://${request.headers.get("host") || url.host}`;
-      if (request.headers.get("origin") !== expectedOrigin)
-        return responseError("Request not allowed.", 403);
+      const host = request.headers.get("x-forwarded-host")?.split(",")[0].trim() || request.headers.get("host") || url.host;
+      const expectedOrigin = `${protocol}://${host}`;
+      const origin = request.headers.get("origin");
+      if (origin !== expectedOrigin) {
+        let allowed = false;
+        if (origin) {
+          try {
+            const originUrl = new URL(origin);
+            if (originUrl.protocol === `${protocol}:` && originUrl.host.endsWith(".vercel.app") && host.endsWith(".vercel.app")) {
+              allowed = true;
+            }
+          } catch {
+            allowed = false;
+          }
+        }
+        if (!allowed) return responseError("Request not allowed.", 403);
+      }
       if (
         request.headers.get("content-type")?.split(";")[0].trim() !==
         "application/octet-stream"

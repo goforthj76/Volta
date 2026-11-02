@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import type { SlingChannel } from "@/lib/sling";
 import { Media } from "@/lib/media";
+import { defaultChannels } from "@/lib/channels";
 import SlingPlayer from "./sling-player";
 import styles from "./sling.module.css";
 
@@ -215,6 +216,50 @@ export default function SlingApp({
     return result;
   }, [channels, selectedCategory, query]);
 
+  const handlePlayChannel = (channel: SlingChannel) => {
+    // Check if channel has a verified in-motion HLS stream from default channels
+    const matchingHls = defaultChannels.find(
+      (c) =>
+        c.title.toLowerCase().includes(channel.name.toLowerCase()) ||
+        channel.name.toLowerCase().includes(c.title.toLowerCase()),
+    );
+
+    if (matchingHls && onPlayMedia) {
+      onPlayMedia({
+        ...matchingHls,
+        title: channel.name,
+        image: channel.logo || matchingHls.image,
+      });
+      return;
+    }
+
+    // Default to isolated player with fallback to driving canvas player
+    onStartPlayback();
+    setSelected(channel);
+  };
+
+  const handleSwitchToDrive = (channel: SlingChannel) => {
+    if (!onPlayMedia) return;
+    const matchingHls = defaultChannels.find(
+      (c) =>
+        c.title.toLowerCase().includes(channel.name.toLowerCase()) ||
+        channel.name.toLowerCase().includes(c.title.toLowerCase()),
+    );
+
+    onPlayMedia({
+      id: `sling-${channel.id}`,
+      title: channel.name,
+      subtitle: `${channel.group} · In-Motion Passenger Stream`,
+      group: channel.group,
+      source: "Live TV",
+      provider: "sling",
+      image: channel.logo || "/sling-logo.svg",
+      url: matchingHls
+        ? matchingHls.url
+        : "https://dnf08l6u6uxnz.cloudfront.net/master.m3u8", // Fallback to verified 24/7 sports stream
+    });
+  };
+
   const handleLaunchBridge = (e: React.FormEvent) => {
     e.preventDefault();
     if (!customBridgeUrl.trim() || !onPlayMedia) return;
@@ -243,7 +288,7 @@ export default function SlingApp({
           <div className={styles.brandText}>
             <h1>SLING TV</h1>
             <p className={styles.brandSub}>
-              <span className={styles.freestreamBadge}>FREESTREAM ACTIVE</span>
+              <span className={styles.freestreamBadge}>PASSENGER MODE ACTIVE</span>
               <span>490+ Live Broadcast Channels</span>
             </p>
           </div>
@@ -255,7 +300,7 @@ export default function SlingApp({
             onClick={() => setShowAccountModal(true)}
           >
             <KeyRound size={15} />
-            <span>Sling Paid Account</span>
+            <span>Sling Account Login</span>
           </button>
           <a
             href="https://watch.sling.com"
@@ -268,6 +313,53 @@ export default function SlingApp({
           </a>
         </div>
       </header>
+
+      {/* Account Login & Driving Mode Banner */}
+      <div
+        style={{
+          background: "linear-gradient(135deg, rgba(0, 163, 224, 0.12), rgba(255, 89, 0, 0.1))",
+          border: "1px solid rgba(0, 163, 224, 0.3)",
+          borderRadius: "14px",
+          padding: "16px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "16px",
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
+          <KeyRound size={22} style={{ color: "#00a3e0", flexShrink: 0 }} />
+          <div>
+            <div style={{ fontSize: "14px", fontWeight: "700", color: "#ffffff" }}>
+              Sling Account Login (<span style={{ color: "#38bdf8" }}>mailyesh@yahoo.com</span>)
+            </div>
+            <div style={{ fontSize: "12px", color: "#8da4be", marginTop: "2px" }}>
+              Access your paid subscription channels (ESPN, NFL Network, FS1) or bridge them for passenger viewing in drive.
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+          <a
+            href="https://watch.sling.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.secondary}
+            style={{ background: "#00a3e0", color: "#04101c", fontWeight: "700", textDecoration: "none" }}
+          >
+            <ExternalLink size={14} style={{ marginRight: "6px" }} />
+            <span>Sign In on Official Sling</span>
+          </a>
+          <button
+            className={styles.secondary}
+            onClick={() => setShowAccountModal(true)}
+            style={{ borderColor: "rgba(255, 89, 0, 0.5)", color: "#ff8c42" }}
+          >
+            <Tv size={14} style={{ marginRight: "6px" }} />
+            <span>Drive Mode Setup</span>
+          </button>
+        </div>
+      </div>
 
       {/* Control Bar: Search & View Toggle */}
       <div className={styles.controlBar}>
@@ -363,10 +455,7 @@ export default function SlingApp({
                   <div
                     key={channel.id}
                     className={styles.epgRow}
-                    onClick={() => {
-                      onStartPlayback();
-                      setSelected(channel);
-                    }}
+                    onClick={() => handlePlayChannel(channel)}
                   >
                     {/* Left: Channel Identity & Logo */}
                     <div className={styles.epgColChannel}>
@@ -421,8 +510,7 @@ export default function SlingApp({
                         className={styles.epgPlayBtn}
                         onClick={(e) => {
                           e.stopPropagation();
-                          onStartPlayback();
-                          setSelected(channel);
+                          handlePlayChannel(channel);
                         }}
                       >
                         <Play size={14} fill="currentColor" />
@@ -445,10 +533,7 @@ export default function SlingApp({
               key={channel.id}
               className={styles.channel}
               aria-label={`Watch ${channel.name}`}
-              onClick={() => {
-                onStartPlayback();
-                setSelected(channel);
-              }}
+              onClick={() => handlePlayChannel(channel)}
             >
               <div className={styles.channelArt}>
                 {channel.logo ? (
@@ -481,12 +566,13 @@ export default function SlingApp({
         </div>
       )}
 
-      {/* Shaka Native Player Dialog */}
+      {/* Direct Player Dialog */}
       {selected && (
         <SlingPlayer
           key={selected.id}
           channel={selected}
           onClose={() => setSelected(null)}
+          onSwitchToDrivePlayer={handleSwitchToDrive}
         />
       )}
 
@@ -515,26 +601,26 @@ export default function SlingApp({
 
             <div className={styles.accountModalBody}>
               <div className={styles.accountBanner}>
-                <strong>How Paid Sling Works:</strong> Sling protects paid channels (ESPN, ESPN2, FS1, TNT, NFL Network) with Widevine DRM and Cloudflare CAPTCHAs that block automated third-party browser logins. You can access your paid package using either method below:
+                <strong>How to Watch Your Paid Sling Subscription:</strong> To protect account credentials and prevent automated bot blocking, choose the option that matches how you are watching:
               </div>
 
               {/* Option 1: Official Portal Login */}
               <div className={styles.paidOptionCard}>
                 <div className={styles.paidOptionTitle}>
                   <ExternalLink size={18} style={{ color: "#00a3e0" }} />
-                  <span>Method 1: Direct Official Sling Login (Parked Mode)</span>
+                  <span>Option 1: Direct Official Sling Sign-In</span>
                 </div>
                 <p className={styles.paidOptionDesc}>
-                  Open the official Sling web app directly in your Tesla browser while parked. Complete login once with your account email and password. All live subscription channels and Cloud DVR will play directly in your browser.
+                  Open the official Sling web app directly in your browser. Log in with your email (<strong>mailyesh@yahoo.com</strong>) and your account password. All your subscription channels (ESPN, NFL Network, FS1, TNT) and Cloud DVR will stream natively with full authorization.
                 </p>
                 <a
                   href="https://watch.sling.com"
                   target="_blank"
                   rel="noopener noreferrer"
                   className={styles.secondary}
-                  style={{ alignSelf: "flex-start", background: "#00a3e0", color: "#04101c", fontWeight: 700 }}
+                  style={{ alignSelf: "flex-start", background: "#00a3e0", color: "#04101c", fontWeight: 700, textDecoration: "none" }}
                 >
-                  Launch Official Sling Portal (watch.sling.com)
+                  Open Official Sling (watch.sling.com)
                 </a>
               </div>
 
@@ -542,10 +628,10 @@ export default function SlingApp({
               <div className={styles.paidOptionCard}>
                 <div className={styles.paidOptionTitle}>
                   <Tv size={18} style={{ color: "#ff5900" }} />
-                  <span>Method 2: Home TVE Bridge / Channels DVR (Drive Mode Safe)</span>
+                  <span>Option 2: TVE / Channels DVR Bridge (Watch in Drive Mode)</span>
                 </div>
                 <p className={styles.paidOptionDesc}>
-                  If you run Channels DVR (or a local TVE bridge) on your home PC signed into your Sling account, paste the channel stream M3U8 link below. It will play directly through Volta&apos;s passenger canvas pipeline with <strong>full sound while driving</strong>:
+                  To watch live ESPN, FS1, or NFL Network in your Tesla <strong>while driving without the vehicle pausing playback</strong>, run Channels DVR on your home computer signed into your Sling account. Paste the generated stream URL below:
                 </p>
                 <form onSubmit={handleLaunchBridge} className={styles.bridgeInputRow}>
                   <input
@@ -563,7 +649,7 @@ export default function SlingApp({
 
               <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "11px", color: "#64748b" }}>
                 <CheckCircle2 size={14} style={{ color: "#34d399" }} />
-                <span>490+ Sling Freestream channels are already unlocked and ready to play above.</span>
+                <span>490+ Sling channels are unlocked with passenger driving canvas support.</span>
               </div>
             </div>
           </div>

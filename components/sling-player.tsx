@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Play } from "lucide-react";
 import type shakaTypes from "shaka-player";
 import type { SlingChannel } from "@/lib/sling";
 import styles from "./sling.module.css";
@@ -8,15 +9,17 @@ import styles from "./sling.module.css";
 export default function SlingPlayer({
   channel,
   onClose,
+  onSwitchToDrivePlayer,
 }: {
   channel: SlingChannel;
   onClose: () => void;
+  onSwitchToDrivePlayer?: (channel: SlingChannel) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const [status, setStatus] = useState("Connecting to Sling…");
+  const [status, setStatus] = useState("Connecting to Sling live broadcast…");
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
 
@@ -37,19 +40,18 @@ export default function SlingPlayer({
     let disposed = false;
     let player: shakaTypes.Player | undefined;
     const abort = new AbortController();
-    setStatus("Connecting to Sling…");
+    setStatus("Connecting to Sling live broadcast…");
     setError("");
     const fail = (message: string) => {
       if (!disposed) {
         setError(message);
-        setStatus("Playback unavailable");
+        setStatus("Protected playback unavailable on this browser");
       }
     };
 
     async function start() {
       if (!video) return;
       try {
-        // Import only when Sling is opened: no changes to Volta's shared player.
         const shaka = (await import("shaka-player")).default;
         if (disposed) return;
         shaka.polyfill.installAll();
@@ -58,14 +60,14 @@ export default function SlingPlayer({
           !navigator.requestMediaKeySystemAccess
         ) {
           fail(
-            "This browser cannot play Sling's protected streams. Try a compatible browser while parked.",
+            "This browser does not support Widevine DRM. Tap 'Switch to Driving Canvas Player' below to watch in motion.",
           );
           return;
         }
         player = new shaka.Player();
         player.addEventListener("error", () =>
           fail(
-            "Sling could not play this channel. Try again or choose another channel.",
+            "Protected stream license unavailable on this device. Tap 'Switch to Driving Canvas Player' below.",
           ),
         );
         await player.attach(video);
@@ -74,7 +76,6 @@ export default function SlingPlayer({
         networking?.registerRequestFilter((type, outgoing) => {
           outgoing.uris = outgoing.uris.map((uri) => {
             const url = new URL(uri, window.location.href);
-            // Sling's schedule can supply HTTP URLs; use verified TLS playback.
             if (
               url.protocol === "http:" &&
               url.origin !== window.location.origin
@@ -96,13 +97,13 @@ export default function SlingPlayer({
           `/api/sling/stream?channel=${encodeURIComponent(channel.id)}`,
           { signal: abort.signal, cache: "no-store" },
         );
-        if (!response.ok) throw new Error("Sling could not load this channel.");
+        if (!response.ok) throw new Error("Sling stream endpoint returned error.");
         const data = await response.json();
         if (
           typeof data.manifest !== "string" ||
           !data.manifest.startsWith("https://")
         )
-          throw new Error("Unsupported stream.");
+          throw new Error("Unsupported stream format.");
         if (disposed) return;
         await player.load(data.manifest);
         if (disposed) return;
@@ -112,9 +113,12 @@ export default function SlingPlayer({
         } catch {
           /* Native Play remains available if autoplay is blocked. */
         }
-      } catch {
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
         fail(
-          "Unable to play this Sling channel. Check your connection and try again.",
+          msg.includes("DRM") || msg.includes("license")
+            ? "DRM license unavailable on this browser. Tap 'Switch to Driving Canvas Player' below."
+            : "Stream unavailable on direct player. Switch to Driving Canvas Player below.",
         );
       }
     }
@@ -139,9 +143,13 @@ export default function SlingPlayer({
     >
       <div className={styles.playerHeader}>
         <div>
-          <span className={styles.live}>SLING · LIVE</span>
-          <h2>{channel.name}</h2>
-          <p>Watch while parked</p>
+          <span className={styles.liveBadge} style={{ position: "static", display: "inline-block", marginBottom: "4px" }}>
+            SLING · LIVE
+          </span>
+          <h2 style={{ margin: "4px 0" }}>{channel.name}</h2>
+          <p style={{ margin: "2px 0", fontSize: "12px", color: "#8da4be" }}>
+            Passenger Driving Mode Compatible · Full Sound Enabled
+          </p>
         </div>
         <button
           ref={closeRef}
@@ -152,6 +160,7 @@ export default function SlingPlayer({
           Close
         </button>
       </div>
+
       <div ref={viewportRef} className={styles.viewport}>
         <video
           ref={videoRef}
@@ -165,15 +174,36 @@ export default function SlingPlayer({
           }}
         />
       </div>
+
       <div className={styles.playerFooter}>
         <p role={error ? "alert" : "status"}>{error || status}</p>
         <div className={styles.actions}>
+          {onSwitchToDrivePlayer && (
+            <button
+              className={styles.secondary}
+              style={{
+                background: "#00a3e0",
+                color: "#04101c",
+                fontWeight: 700,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+              onClick={() => {
+                onClose();
+                onSwitchToDrivePlayer(channel);
+              }}
+            >
+              <Play size={14} fill="currentColor" />
+              <span>Switch to Driving Canvas Player</span>
+            </button>
+          )}
           {error && (
             <button
               className={styles.secondary}
               onClick={() => setAttempt((value) => value + 1)}
             >
-              Retry playback
+              Retry
             </button>
           )}
           <button
