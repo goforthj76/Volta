@@ -635,7 +635,6 @@ export default function Entertainment() {
             { id: "YouTube", label: "YouTube" },
             { id: "Stremio", label: "Stremio" },
             { id: "Free Live TV", label: "Free Live TV", hasLive: true },
-            { id: "Fubo", label: "Fubo", hasLive: true },
             { id: "Sling", label: "Sling", hasLive: true },
             { id: "Favorites", label: "My List" },
           ].map((tab) => {
