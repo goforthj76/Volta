@@ -34,26 +34,13 @@ function StremioLogo() {
 
 function FuboLogo() {
   return (
-    <svg viewBox="0 0 100 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M4 2h14v5H9v4h8v5H9v10H4V2z" fill="#ff5900"/>
-      <path d="M22 2h5v15c0 3.3 2.2 5 5 5s5-1.7 5-5V2h5v15c0 6.6-4.4 10-10 10s-10-3.4-10-10V2z" fill="#ff5900"/>
-      <path d="M41 2h10c4.5 0 8 3 8 7.5 0 2.5-1.2 4.6-3 5.8 2.6 1.1 4.5 3.5 4.5 6.7 0 5-4 8-9.5 8H41V2zm5 5v5h4.5c1.8 0 3.2-1.1 3.2-2.5S52.3 7 50.5 7H46zm0 9v7h5c2.1 0 3.8-1.4 3.8-3.5S53.1 16 51 16H46z" fill="#ff5900"/>
-      <path d="M74 2c7.2 0 13 5.8 13 13s-5.8 13-13 13-13-5.8-13-13 5.8-13 13-13zm0 5c-4.4 0-8 3.6-8 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8z" fill="#ff5900"/>
-    </svg>
+    <img src="/fubo-logo.svg" alt="Fubo" style={{ height: "30px", width: "auto", filter: "invert(42%) sepia(98%) saturate(1450%) hue-rotate(360deg) brightness(102%) contrast(105%)" }} />
   );
 }
 
 function SlingLogo() {
   return (
-    <svg viewBox="0 0 105 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <circle cx="10" cy="9" r="6" fill="#ffaa00"/>
-      <circle cx="10" cy="23" r="6" fill="#00a3e0"/>
-      <path d="M28 7c-4 0-7 2-7 5.5 0 6 12 3.5 12 9.5 0 3.5-3 5-7 5-4.5 0-8-2-8-5.5h-4c0 6 5.5 9.5 12 9.5 6.5 0 11-3.5 11-9 0-6.5-12-4-12-10 0-3 2.5-4.5 6.5-4.5 3.5 0 7 1.5 7 4.5h4C45 8.5 40 7 28 7z" fill="#ffffff"/>
-      <path d="M50 2h4v27h-4V2z" fill="#ffffff"/>
-      <path d="M59 2h4v5h-4V2zm0 8h4v19h-4V10z" fill="#ffffff"/>
-      <path d="M68 10h4v3c1.2-2.2 3.5-3.5 6.5-3.5 5 0 8.5 3.8 8.5 9.5V29h-4V19c0-3.5-2-5.5-5.5-5.5-3.5 0-5.5 2-5.5 5.5v10h-4V10z" fill="#ffffff"/>
-      <path d="M91 10h4v2.5c1.2-2 3.5-3 6-3 6.5 0 10.5 4.5 10.5 10s-4 10-10.5 10c-2.5 0-4.8-1-6-3V34h-4V10zm4 9.5c0 3.5 2.5 6 6 6s6-2.5 6-6-2.5-6-6-6-6 2.5-6 6z" fill="#ffffff"/>
-    </svg>
+    <img src="/sling-logo.svg" alt="Sling" style={{ height: "30px", width: "auto" }} />
   );
 }
 
