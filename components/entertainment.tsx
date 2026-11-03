@@ -24,6 +24,8 @@ import {
   Link2,
   Moon,
   Shield,
+  ShieldCheck,
+  KeyRound,
 } from "lucide-react";
 import {
   artwork,
@@ -56,7 +58,7 @@ import StremioView from "./stremio-view";
 import IptvView from "./iptv-view";
 import { Crown } from "lucide-react";
 import SecretMenu from "./secret-menu";
-import { getActiveUser, isMasterAdmin } from "@/lib/accounts";
+import { getActiveUser, isMasterAdmin, logOutActiveUser } from "@/lib/accounts";
 
 export default function Entertainment() {
   const [secretMenuOpen, setSecretMenuOpen] = useState(false);
@@ -85,6 +87,8 @@ export default function Entertainment() {
     [active, setActive] = useState<Media | null>(null),
     [toast, setToast] = useState(""),
     [authOpen, setAuthOpen] = useState(false),
+    [authMode, setAuthMode] = useState<"signin" | "signup">("signin"),
+    [previewNoticeDismissed, setPreviewNoticeDismissed] = useState(false),
     [account, setAccount] = useState(""),
     [ready, setReady] = useState(false),
     [results, setResults] = useState<Media[] | null>(null),
@@ -117,6 +121,19 @@ export default function Entertainment() {
   const hydrated = useRef(false);
   const skipPersist = useRef(false);
   const notify = useCallback((s: string) => setToast(s), []);
+  const handleSignOut = () => {
+    logOutActiveUser();
+    if (configured) {
+      supabase().auth.signOut().catch(() => {});
+    }
+    setAccount("");
+    setUserId("");
+    setProfiles(defaultProfiles);
+    setProfileId("passenger");
+    setProfileOpen(false);
+    notify("Signed out. Switched to Guest Preview mode.");
+  };
+
   useEffect(() => {
     const outcome = new URLSearchParams(location.search).get("connection");
     if (outcome) {
@@ -677,56 +694,194 @@ export default function Entertainment() {
               <span>SECRET VAULT</span>
             </button>
           )}
-          <button
-            className="tesla-profile-pill"
-            onClick={() => setProfileOpen(!profileOpen)}
-            title="Profile switcher"
-          >
-            <span
-              className="avatar-dot"
-              style={{ background: profile?.color || "#e2e8f0" }}
+          {account ? (
+            <button
+              className="tesla-profile-pill"
+              onClick={() => setProfileOpen(!profileOpen)}
+              title="Profile switcher and account"
             >
-              {profile?.name?.[0] || "P"}
-            </span>
-            <span>{profile?.name || "Passenger"}</span>
-            <ChevronDown size={14} />
-          </button>
+              <span
+                className="avatar-dot"
+                style={{
+                  background: isMasterAdmin(account)
+                    ? "#eab308"
+                    : profile?.color || "#e2e8f0",
+                  color: isMasterAdmin(account) ? "#000" : "inherit",
+                }}
+              >
+                {isMasterAdmin(account) ? "👑" : profile?.name?.[0] || "P"}
+              </span>
+              <span>{isMasterAdmin(account) ? "Owner" : profile?.name || "Passenger"}</span>
+              <ChevronDown size={14} />
+            </button>
+          ) : (
+            <div className="header-auth-group">
+              <button
+                type="button"
+                className="header-signin-btn"
+                onClick={() => {
+                  setAuthMode("signin");
+                  setAuthOpen(true);
+                }}
+                title="Sign in to your Volta account"
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                className="header-signup-btn"
+                onClick={() => {
+                  setAuthMode("signup");
+                  setAuthOpen(true);
+                }}
+                title="Create account with invite code"
+              >
+                Sign Up
+              </button>
+            </div>
+          )}
         </div>
       </header>
       <div className="main-shell">
         {profileOpen && (
           <div className="profile-menu">
-            <span className="eyebrow">WHO’S WATCHING?</span>
-            {profiles.map((p) => (
-              <button key={p.id} onClick={() => changeProfile(p.id)}>
-                <span className="avatar" style={{ background: p.color }}>
-                  {p.name[0]}
-                </span>
-                {p.name}
-                {p.id === profileId && <Check size={18} />}
-              </button>
-            ))}
-            <button
-              onClick={() => {
-                setProfileOpen(false);
-                navigate("Profile");
-              }}
-            >
-              <Plus size={18} />
-              Manage profiles
-            </button>
-            <button
-              onClick={() => {
-                setProfileOpen(false);
-                navigate("Settings");
-              }}
-            >
-              <Settings size={18} />
-              Settings & connections
-            </button>
+            {account ? (
+              <>
+                <div className="profile-menu-header">
+                  <div className="profile-menu-badge">
+                    {isMasterAdmin(account) ? (
+                      <span className="owner-tag">
+                        <Crown size={12} /> OWNER
+                      </span>
+                    ) : (
+                      <span className="member-tag">
+                        <ShieldCheck size={12} /> MEMBER
+                      </span>
+                    )}
+                  </div>
+                  <span className="profile-menu-email">{account}</span>
+                </div>
+                <div className="profile-menu-divider" />
+                <span className="eyebrow">WHO’S WATCHING?</span>
+                {profiles.map((p) => (
+                  <button key={p.id} onClick={() => changeProfile(p.id)}>
+                    <span className="avatar" style={{ background: p.color }}>
+                      {p.name[0]}
+                    </span>
+                    {p.name}
+                    {p.id === profileId && <Check size={18} />}
+                  </button>
+                ))}
+                <button
+                  onClick={() => {
+                    setProfileOpen(false);
+                    navigate("Profile");
+                  }}
+                >
+                  <Plus size={18} />
+                  Manage profiles
+                </button>
+                <button
+                  onClick={() => {
+                    setProfileOpen(false);
+                    navigate("Settings");
+                  }}
+                >
+                  <Settings size={18} />
+                  Settings & connections
+                </button>
+                <div className="profile-menu-divider" />
+                <button
+                  className="signout-menu-btn"
+                  onClick={handleSignOut}
+                >
+                  <LogOut size={16} />
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="guest-preview-notice">
+                  <span className="guest-preview-tag">GUEST PREVIEW</span>
+                  <p>You’re previewing Volta. Sign in or enter an invite code to unlock full passenger playback & cloud sync.</p>
+                </div>
+                <button
+                  className="menu-action-btn primary"
+                  onClick={() => {
+                    setProfileOpen(false);
+                    setAuthMode("signin");
+                    setAuthOpen(true);
+                  }}
+                >
+                  <UserRound size={16} />
+                  Sign In
+                </button>
+                <button
+                  className="menu-action-btn secondary"
+                  onClick={() => {
+                    setProfileOpen(false);
+                    setAuthMode("signup");
+                    setAuthOpen(true);
+                  }}
+                >
+                  <KeyRound size={16} />
+                  Sign Up with Invite
+                </button>
+                <button
+                  onClick={() => {
+                    setProfileOpen(false);
+                    navigate("Settings");
+                  }}
+                >
+                  <Settings size={18} />
+                  Settings
+                </button>
+              </>
+            )}
           </div>
         )}
         <main>
+          {!account && !previewNoticeDismissed && page === "Home" && (
+            <div className="volta-preview-strip">
+              <div className="preview-strip-left">
+                <span className="preview-strip-badge">GUEST PREVIEW</span>
+                <span className="preview-strip-text">
+                  You are previewing Volta. Sign in or register with an invite code to unlock full streaming, saved favorites & phone sync.
+                </span>
+              </div>
+              <div className="preview-strip-actions">
+                <button
+                  type="button"
+                  className="preview-btn-signin"
+                  onClick={() => {
+                    setAuthMode("signin");
+                    setAuthOpen(true);
+                  }}
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  className="preview-btn-signup"
+                  onClick={() => {
+                    setAuthMode("signup");
+                    setAuthOpen(true);
+                  }}
+                >
+                  Sign Up with Invite
+                </button>
+                <button
+                  type="button"
+                  className="preview-strip-dismiss"
+                  onClick={() => setPreviewNoticeDismissed(true)}
+                  aria-label="Dismiss banner"
+                  title="Dismiss preview notice"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            </div>
+          )}
           {searchOpen && (
             <form className="global-search" onSubmit={doSearch}>
               <Search />
@@ -1141,10 +1296,7 @@ export default function Entertainment() {
                       <button
                         className="secondary"
                         onClick={async () => {
-                          await supabase().auth.signOut();
-                          setAccount("");
-                          setUserId("");
-                          notify("You’ve signed out.");
+                          handleSignOut();
                         }}
                       >
                         <LogOut size={18} />
@@ -1604,6 +1756,7 @@ export default function Entertainment() {
       {authOpen && (
         <Auth
           close={() => setAuthOpen(false)}
+          initialMode={authMode}
           onSignedIn={(user) => {
             setAccount(user.email);
             setVehicle(user.vehicle);

@@ -24,18 +24,22 @@ const paintOptions = [
 export default function Auth({
   close,
   onSignedIn,
+  initialMode = "signin",
+  initialInviteCode = "",
 }: {
   close: () => void;
   onSignedIn: (account: UserAccount) => void;
+  initialMode?: "signin" | "signup";
+  initialInviteCode?: string;
 }) {
   const [vehicle, setVehicle] = useState<Vehicle>("Tesla Model 3");
   const [display, setDisplay] = useState<Display>("Center display (parked)");
   const [paint, setPaint] = useState(0);
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup">(initialMode);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
+  const [inviteCode, setInviteCode] = useState(initialInviteCode);
   const [message, setMessage] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [busy, setBusy] = useState(false);
@@ -50,10 +54,11 @@ export default function Auth({
 
     try {
       if (mode === "signup") {
+        const fallbackName = email.split("@")[0] || (isAdminEmail ? "Owner" : "Passenger");
         const res = registerAccount({
           email,
           password,
-          name: name.trim() || (isAdminEmail ? "Owner" : "Passenger"),
+          name: name.trim() || fallbackName,
           vehicle,
           display,
           inviteCode: isAdminEmail ? undefined : inviteCode,
@@ -167,20 +172,6 @@ export default function Auth({
         {successMsg && <div className="login-success-alert">{successMsg}</div>}
 
         <form onSubmit={submit} className="auth-form">
-          {mode === "signup" && (
-            <div className="form-group">
-              <label>Your Name</label>
-              <input
-                required
-                maxLength={24}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoComplete="given-name"
-                placeholder={isAdminEmail ? "Tesla Owner" : "First name"}
-              />
-            </div>
-          )}
-
           <div className="form-group">
             <label>Email Address</label>
             <input
@@ -223,15 +214,26 @@ export default function Auth({
                     type="text"
                     required
                     value={inviteCode}
-                    onChange={(e) => setInviteCode(e.target.value)}
+                    onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                     placeholder="e.g. VOLTA-VIP-2026"
                     className="invite-code-input"
                   />
                   <small className="field-hint">
-                    Need a code? Ask the vehicle owner ({MASTER_ADMIN_EMAIL}) for a passenger pass.
+                    Enter your invite code (e.g. VOLTA-VIP-2026) or request one from the owner.
                   </small>
                 </div>
               )}
+
+              <div className="form-group">
+                <label>Your Name <span style={{ opacity: 0.6, fontWeight: 400 }}>(Optional)</span></label>
+                <input
+                  maxLength={24}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoComplete="given-name"
+                  placeholder={isAdminEmail ? "Tesla Owner" : "First name"}
+                />
+              </div>
 
               <div className="form-group">
                 <label>Your Vehicle</label>
