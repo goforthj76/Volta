@@ -6,10 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Wind,
-  Phone,
-  Music,
   LayoutGrid,
-  Camera,
   Volume2,
   VolumeX,
   Flame,
@@ -116,22 +113,6 @@ export default function TeslaDock({
 
       {/* Center Tesla Apps Launcher */}
       <div className="dock-section dock-center">
-        <button
-          className="dock-icon-btn"
-          title="Phone / Bluetooth"
-          aria-label="Phone"
-        >
-          <Phone size={18} />
-        </button>
-
-        <button
-          className="dock-icon-btn"
-          title="Tesla Audio"
-          aria-label="Tesla Audio"
-        >
-          <Music size={19} />
-        </button>
-
         {/* 9-Dot App Grid Launcher */}
         <button
           className="dock-icon-btn app-grid-btn highlight"
@@ -140,14 +121,6 @@ export default function TeslaDock({
           aria-label="Tesla App Hub"
         >
           <LayoutGrid size={22} />
-        </button>
-
-        <button
-          className="dock-icon-btn"
-          title="Rear View Camera"
-          aria-label="Camera"
-        >
-          <Camera size={19} />
         </button>
 
         {inMotion && (
