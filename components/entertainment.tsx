@@ -54,8 +54,6 @@ import { StremioMeta } from "@/lib/stremio";
 import YouTubeView from "./youtube-view";
 import StremioView from "./stremio-view";
 import IptvView from "./iptv-view";
-import StreamingAppPortal from "./streaming-app-portal";
-import SlingApp from "./sling-app";
 import TeslaDock from "./tesla-dock";
 import { Crown } from "lucide-react";
 import SecretMenu from "./secret-menu";
@@ -634,8 +632,7 @@ export default function Entertainment() {
             { id: "Home", label: "Home" },
             { id: "YouTube", label: "YouTube" },
             { id: "Stremio", label: "Stremio" },
-            { id: "Free Live TV", label: "Free Live TV", hasLive: true },
-            { id: "Sling", label: "Sling", hasLive: true },
+            { id: "Live TV", label: "Live TV", hasLive: true },
             { id: "Favorites", label: "My List" },
           ].map((tab) => {
             const isActive =
@@ -767,15 +764,7 @@ export default function Entertainment() {
             <YouTubeView onPlay={play} />
           ) : (page === "Stremio" || page === "Streaming") && results === null ? (
             <StremioView onPlay={play} initialItem={dashboardMovie} />
-          ) : page === "Sling" && results === null ? (
-            <SlingApp onStartPlayback={closePlayer} onPlayMedia={play} />
-          ) : page === "Fubo" && results === null ? (
-            <StreamingAppPortal
-              provider="fubo"
-              onPlay={play}
-              onOpenLiveTv={() => navigate("Free Live TV")}
-            />
-          ) : (page === "Free Live TV" || page === "Live TV") && results === null ? (
+          ): (page === "Live TV" || page === "Free Live TV") && results === null ? (
             <IptvView onPlay={play} initialProvider="all" />
           ) : page === "Settings" ? (
             <div className="inner-page">

@@ -32,17 +32,6 @@ function StremioLogo() {
   return <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 2 46 24 24 46 2 24Z" fill="white" opacity=".22"/><path d="m19 12 18 12-18 12Z" fill="white"/><path d="m11 17 8-5v24l-8-5Z" fill="white" opacity=".55"/></svg>;
 }
 
-function FuboLogo() {
-  return (
-    <img src="/fubo-logo.svg" alt="Fubo" style={{ height: "30px", width: "auto", filter: "invert(42%) sepia(98%) saturate(1450%) hue-rotate(360deg) brightness(102%) contrast(105%)" }} />
-  );
-}
-
-function SlingLogo() {
-  return (
-    <img src="/sling-logo.svg" alt="Sling" style={{ height: "30px", width: "auto" }} />
-  );
-}
 
 function YouTubeLogo() {
   return <svg viewBox="0 0 64 45" aria-hidden="true"><path d="M62.7 7A8 8 0 0 0 57 1.4C52 0 32 0 32 0S12 0 7 1.4A8 8 0 0 0 1.3 7C0 12 0 22.5 0 22.5S0 33 1.3 38A8 8 0 0 0 7 43.6C12 45 32 45 32 45s20 0 25-1.4a8 8 0 0 0 5.7-5.6C64 33 64 22.5 64 22.5S64 12 62.7 7Z" fill="#ff0033"/><path d="m26 13 17 9.5L26 32Z" fill="white"/></svg>;
@@ -225,27 +214,11 @@ export default function CabinLauncher({
               <ArrowUpRight className="watch-app-arrow" size={21} />
             </button>
             <button
-              aria-label="Open Fubo TV"
-              className="watch-app watch-app-fubo"
-              onClick={() => onNavigate("Fubo")}
-            >
-              <span className="watch-app-logo"><FuboLogo /></span>
-              <ArrowUpRight className="watch-app-arrow" size={21} />
-            </button>
-            <button
-              aria-label="Open Sling TV"
-              className="watch-app watch-app-sling"
-              onClick={() => onNavigate("Sling")}
-            >
-              <span className="watch-app-logo"><SlingLogo /></span>
-              <ArrowUpRight className="watch-app-arrow" size={21} />
-            </button>
-            <button
-              aria-label="Open Free Live TV"
+              aria-label="Open Live TV"
               className="watch-app watch-app-tv"
-              onClick={() => onNavigate("Free Live TV")}
+              onClick={() => onNavigate("Live TV")}
             >
-              <span className="watch-app-logo"><Tv /><strong>Free Live TV</strong><span className="watch-live-dot" /></span>
+              <span className="watch-app-logo"><Tv /><strong>Live TV</strong><span className="watch-live-dot" /></span>
               <ArrowUpRight className="watch-app-arrow" size={21} />
             </button>
           </div>

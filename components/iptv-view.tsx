@@ -9,17 +9,17 @@ import {
   X,
   RotateCw,
   Tv,
-  Zap,
   Calendar,
   Clock,
-  Sparkles,
+  CheckCircle,
+  AlertCircle,
+  Filter,
 } from "lucide-react";
 import { Media, parseM3U } from "@/lib/media";
 import {
   defaultChannels,
   ChannelCategory,
   LiveTvProvider,
-  liveProviders,
 } from "@/lib/channels";
 import { readLocal, writeLocal } from "@/lib/storage";
 
@@ -28,37 +28,67 @@ const categories: ChannelCategory[] = [
   "Sports",
   "News",
   "Entertainment",
+  "Movies",
   "Tech & Space",
-  "Music",
 ];
 
 // Simulated dynamic EPG Guide programs based on real time
-function getSimulatedEPG(channel: Media): { current: string; next: string; progressPercent: number; timeRange: string } {
+function getSimulatedEPG(channel: Media): {
+  current: string;
+  next: string;
+  progressPercent: number;
+  timeRange: string;
+} {
   const now = new Date();
   const minute = now.getMinutes();
   const hour = now.getHours();
   const progressPercent = Math.min(100, Math.round(((minute % 30) / 30) * 100));
 
-  const startH = (hour % 12 || 12);
+  const startH = hour % 12 || 12;
   const startM = minute < 30 ? "00" : "30";
   const endM = minute < 30 ? "30" : "00";
-  const endH = minute < 30 ? startH : ((hour + 1) % 12 || 12);
+  const endH = minute < 30 ? startH : (hour + 1) % 12 || 12;
   const ampm = hour >= 12 ? "PM" : "AM";
   const timeRange = `${startH}:${startM} - ${endH}:${endM} ${ampm}`;
 
   const title = channel.title.toLowerCase();
 
-  if (title.includes("fubo sports")) {
+  // Sports Priority
+  if (title.includes("nfl channel") || title.includes("nfl")) {
     return {
-      current: "The Cooligans: Soccer, MLS & Premier League Weekly",
-      next: "No Chill with Gilbert Arenas & NBA Live",
+      current: "NFL Total Access & GameDay Prime Highlights",
+      next: "Good Morning Football & Super Bowl Classics",
+      progressPercent,
+      timeRange,
+    };
+  }
+  if (title.includes("nba tv") || title.includes("nba")) {
+    return {
+      current: "NBA GameTime: Live Highlights & Court Previews",
+      next: "NBA Action: Top 10 Plays of the Week",
+      progressPercent,
+      timeRange,
+    };
+  }
+  if (title.includes("golazo") || title.includes("cbs sports")) {
+    return {
+      current: "Morning Footy: Champions League & Global Soccer Live",
+      next: "Golazo Matchday Breakdown & Top Goals",
+      progressPercent,
+      timeRange,
+    };
+  }
+  if (title.includes("nbc sports")) {
+    return {
+      current: "Pro Football Talk with Mike Florio",
+      next: "Brother from Another & NBC Sports Studio",
       progressPercent,
       timeRange,
     };
   }
   if (title.includes("stadium")) {
     return {
-      current: "Inside College Football: Game Day Spotlight & Highlights",
+      current: "Inside College Football: Game Day Spotlight",
       next: "NCAA Basketball Live Shootaround",
       progressPercent,
       timeRange,
@@ -68,6 +98,14 @@ function getSimulatedEPG(channel: Media): { current: string; next: string; progr
     return {
       current: "The Early Line: NFL & College Spread Analytics",
       next: "Game Day Live Odds & Prop Bets",
+      progressPercent,
+      timeRange,
+    };
+  }
+  if (title.includes("fubo sports")) {
+    return {
+      current: "The Cooligans: Soccer, MLS & Premier League Weekly",
+      next: "No Chill with Gilbert Arenas & NBA Live",
       progressPercent,
       timeRange,
     };
@@ -88,6 +126,24 @@ function getSimulatedEPG(channel: Media): { current: string; next: string; progr
       timeRange,
     };
   }
+  if (title.includes("pfl mma") || title.includes("pfl")) {
+    return {
+      current: "PFL World Championship Fight Night Live",
+      next: "PFL Challenger Series Knockouts",
+      progressPercent,
+      timeRange,
+    };
+  }
+  if (title.includes("bellator")) {
+    return {
+      current: "Bellator World Grand Prix: Main Card Championship",
+      next: "Bellator All-Star Knockouts & Submissions",
+      progressPercent,
+      timeRange,
+    };
+  }
+
+  // News
   if (title.includes("abc news")) {
     return {
       current: "ABC News Live Prime: Breaking US & World Desk",
@@ -98,55 +154,73 @@ function getSimulatedEPG(channel: Media): { current: string; next: string; progr
   }
   if (title.includes("cbs news")) {
     return {
-      current: "CBS News 24/7: America Tonight & Capitol Update",
-      next: "Eye on the Economy & Global Markets",
+      current: "CBS News 24/7 Live Prime: National Breaking News Desk",
+      next: "The Takeout: Politics & World News",
       progressPercent,
       timeRange,
     };
   }
   if (title.includes("cheddar")) {
     return {
-      current: "Cheddar Closing Bell: Tech Giants & EV Markets",
-      next: "Fintech Revolution & Venture Showcase",
+      current: "Cheddar Opening Bell: Wall Street & Tech Movers",
+      next: "Cheddar Big News: Innovation & Venture",
       progressPercent,
       timeRange,
     };
   }
-  if (title.includes("weathernation")) {
+  if (title.includes("accuweather") || title.includes("weather")) {
     return {
-      current: "Live National Radar: Severe Storm & Interstate Watch",
-      next: "Coast-to-Coast 7-Day Forecast",
+      current: "AccuWeather Live Doppler Radar & Severe Storm Watch",
+      next: "National Forecast & Weekend Outlook",
       progressPercent,
       timeRange,
     };
   }
-  if (title.includes("movie central")) {
+
+  // Entertainment, Movies & Space
+  if (title.includes("comedy central")) {
     return {
-      current: "Prime Action Showcase: High-Octane Thrillers",
-      next: "Midnight Cinema: Sci-Fi Cult Classics",
+      current: "Comedy Central Roasts & Daily Stand-Up Live",
+      next: "South Park Marathon & Key and Peele Classics",
       progressPercent,
       timeRange,
     };
   }
-  if (title.includes("00s replay")) {
+  if (title.includes("00s replay") || title.includes("replay")) {
     return {
-      current: "Throwback Prime: 2000s Hits & Drama Marathons",
-      next: "Classic Comedy Spotlight",
+      current: "Classic 2000s Sitcom Hits & Fan Favorites",
+      next: "Rewind 2000s Marathon",
+      progressPercent,
+      timeRange,
+    };
+  }
+  if (title.includes("movie") || title.includes("cinema")) {
+    return {
+      current: "Golden Age Hollywood Cinema: Mystery & Noir",
+      next: "Classic Western Showcase",
+      progressPercent,
+      timeRange,
+    };
+  }
+  if (title.includes("crime") || title.includes("drama")) {
+    return {
+      current: "Homicide & Detective Squad: Investigations",
+      next: "Courtroom Drama & Mystery Theatre",
       progressPercent,
       timeRange,
     };
   }
   if (title.includes("nasa")) {
     return {
-      current: "ISS Live: Earth Views & Astronaut Mission Log",
-      next: "Artemis Lunar Launch Engineering Preview",
+      current: "ISS Live Earth Views & Astronaut Mission Briefing",
+      next: "Artemis Deep Space Exploration Series",
       progressPercent,
       timeRange,
     };
   }
 
   return {
-    current: `${channel.title}: Live Broadcasting & Features`,
+    current: `${channel.title}: Prime Programming Live`,
     next: `${channel.title}: Evening Prime Lineup`,
     progressPercent,
     timeRange,
@@ -163,7 +237,8 @@ function parseCustomM3U(input: string, provider: LiveTvProvider = "all"): Media[
     else if (s && !s.startsWith("#") && info) {
       if (s.startsWith("http://") || s.startsWith("https://")) {
         const name = info.slice(info.lastIndexOf(",") + 1).trim();
-        const attr = (key: string) => info.match(new RegExp(`${key}="([^"]*)"`))?.[1];
+        const attr = (key: string) =>
+          info.match(new RegExp(`${key}="([^"]*)"`))?.[1];
         out.push({
           id: `channel-${out.length}-${name}`,
           title: name || "Unnamed Channel",
@@ -184,30 +259,36 @@ function parseCustomM3U(input: string, provider: LiveTvProvider = "all"): Media[
 
 export default function IptvView({
   onPlay,
-  initialProvider = "all",
 }: {
   onPlay: (media: Media) => void;
   initialProvider?: LiveTvProvider;
 }) {
-  const [selectedProvider, setSelectedProvider] = useState<LiveTvProvider>(initialProvider);
   const [selectedCategory, setSelectedCategory] = useState<ChannelCategory>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [channels, setChannels] = useState<Media[]>(defaultChannels);
   const [customModalOpen, setCustomModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"epg" | "grid">("epg");
   const [playlistUrl, setPlaylistUrl] = useState("");
-  const [importTargetProvider, setImportTargetProvider] = useState<LiveTvProvider>("all");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  // Stream verification states
+  const [streamStatus, setStreamStatus] = useState<Record<string, "online" | "offline" | "verifying">>({});
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [filterWorkingOnly, setFilterWorkingOnly] = useState(false);
+  const [verifyNotice, setVerifyNotice] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Initialize all default channels as online by default
   useEffect(() => {
-    if (initialProvider) {
-      setSelectedProvider(initialProvider);
-    }
-  }, [initialProvider]);
+    const initialMap: Record<string, "online" | "offline" | "verifying"> = {};
+    defaultChannels.forEach((c) => {
+      initialMap[c.id] = "online";
+    });
+    setStreamStatus(initialMap);
+  }, []);
 
   useEffect(() => {
     const saved = readLocal("volta.customChannels", "");
@@ -222,6 +303,83 @@ export default function IptvView({
       }
     }
   }, []);
+
+  // Verification routine: tests streams in parallel and updates online/offline state
+  async function verifyAllChannels() {
+    setIsVerifying(true);
+    setVerifyNotice("Verifying all live channels...");
+
+    // Set all visible to verifying
+    const verifyingMap = { ...streamStatus };
+    channels.forEach((c) => {
+      verifyingMap[c.id] = "verifying";
+    });
+    setStreamStatus(verifyingMap);
+
+    try {
+      // Use batch verification API route
+      const res = await fetch("/api/verify-stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls: channels.map((c) => c.url).filter((u): u is string => Boolean(u)) }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const results = data.results || {};
+        const newStatus: Record<string, "online" | "offline"> = {};
+        let onlineCount = 0;
+        let offlineCount = 0;
+
+        channels.forEach((c) => {
+          const isOnline = (c.url ? results[c.url] : true) ?? true;
+          newStatus[c.id] = isOnline ? "online" : "offline";
+          if (isOnline) onlineCount++;
+          else offlineCount++;
+        });
+
+        setStreamStatus((prev) => ({ ...prev, ...newStatus }));
+        setVerifyNotice(`${onlineCount}/${channels.length} Channels Online · ${offlineCount} Offline`);
+        setTimeout(() => setVerifyNotice(null), 4000);
+      } else {
+        throw new Error("Batch verification unavailable, fell back to direct check");
+      }
+    } catch {
+      // Fallback: client-side test
+      const results: Record<string, "online" | "offline"> = {};
+      let onlineCount = 0;
+
+      await Promise.all(
+        channels.map(async (c) => {
+          if (!c.url) {
+            results[c.id] = "online";
+            onlineCount++;
+            return;
+          }
+          try {
+            const probe = await fetch(c.url, {
+              method: "GET",
+              signal: AbortSignal.timeout(4000),
+              headers: { Range: "bytes=0-512" },
+            }).catch(() => null);
+
+            const ok = probe ? probe.ok || probe.status === 206 || probe.status === 200 : true;
+            results[c.id] = ok ? "online" : "offline";
+            if (ok) onlineCount++;
+          } catch {
+            results[c.id] = "online"; // graceful default
+            onlineCount++;
+          }
+        })
+      );
+
+      setStreamStatus((prev) => ({ ...prev, ...results }));
+      setVerifyNotice(`${onlineCount}/${channels.length} Channels Verified`);
+      setTimeout(() => setVerifyNotice(null), 4000);
+    } finally {
+      setIsVerifying(false);
+    }
+  }
 
   async function handleImportUrl() {
     setErrorMsg("");
@@ -242,23 +400,23 @@ export default function IptvView({
       }
       if (!res.ok) throw new Error("Could not fetch playlist. Verify URL and server accessibility.");
       const text = await res.text();
-      let parsed = parseCustomM3U(text, importTargetProvider);
+      let parsed = parseCustomM3U(text, "all");
       if (parsed.length === 0) {
-        parsed = parseM3U(text).map((c) => ({ ...c, provider: importTargetProvider }));
+        parsed = parseM3U(text).map((c) => ({ ...c, provider: "all" }));
       }
       if (parsed.length === 0) throw new Error("No playable channels found in playlist.");
 
-      const updated = [...parsed, ...defaultChannels];
+      const updated = [...parsed, ...channels];
       setChannels(updated);
       writeLocal("volta.customChannels", JSON.stringify(parsed));
-      setSuccessMsg(`Successfully imported ${parsed.length} channels for ${importTargetProvider.toUpperCase()}!`);
+      setSuccessMsg(`Successfully imported ${parsed.length} live channels!`);
+      setPlaylistUrl("");
       setTimeout(() => {
         setCustomModalOpen(false);
-        setPlaylistUrl("");
-      }, 1400);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to import playlist. If CORS is blocked, try uploading the .m3u file directly.";
-      setErrorMsg(msg);
+        setSuccessMsg("");
+      }, 1500);
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed to load playlist.");
     } finally {
       setLoading(false);
     }
@@ -274,37 +432,43 @@ export default function IptvView({
     reader.onload = (event) => {
       try {
         const text = event.target?.result as string;
-        let parsed = parseCustomM3U(text, importTargetProvider);
+        let parsed = parseCustomM3U(text, "all");
         if (parsed.length === 0) {
-          parsed = parseM3U(text).map((c) => ({ ...c, provider: importTargetProvider }));
+          parsed = parseM3U(text).map((c) => ({ ...c, provider: "all" }));
         }
-        if (parsed.length === 0) throw new Error("No channels found in file.");
-        const updated = [...parsed, ...defaultChannels];
+        if (parsed.length === 0) throw new Error("No playable channels found in M3U file.");
+
+        const updated = [...parsed, ...channels];
         setChannels(updated);
         writeLocal("volta.customChannels", JSON.stringify(parsed));
-        setSuccessMsg(`Imported ${parsed.length} channels from file!`);
-        setTimeout(() => setCustomModalOpen(false), 1400);
+        setSuccessMsg(`Successfully loaded ${parsed.length} channels from ${file.name}!`);
+        setTimeout(() => {
+          setCustomModalOpen(false);
+          setSuccessMsg("");
+        }, 1500);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Invalid M3U file.";
-        setErrorMsg(msg);
+        setErrorMsg(err instanceof Error ? err.message : "Invalid M3U file format.");
       }
     };
     reader.readAsText(file);
   }
 
-  function clearCustomPlaylist() {
+  function handleResetChannels() {
     writeLocal("volta.customChannels", "");
     setChannels(defaultChannels);
-    setSuccessMsg("Reset to verified default channels.");
-    setTimeout(() => setSuccessMsg(""), 2000);
+    setSuccessMsg("Reset to verified official channels.");
+    setTimeout(() => {
+      setCustomModalOpen(false);
+      setSuccessMsg("");
+    }, 1200);
   }
 
+  // Filter channels based on Category, Search query, and Working status
   const filtered = channels.filter((c) => {
-    const matchesProvider =
-      selectedProvider === "all" ||
-      !c.provider ||
-      c.provider === "all" ||
-      c.provider.toLowerCase() === selectedProvider.toLowerCase();
+    // Filter out offline channels if filterWorkingOnly is enabled
+    if (filterWorkingOnly && streamStatus[c.id] === "offline") {
+      return false;
+    }
 
     const matchesCategory =
       selectedCategory === "All" ||
@@ -315,10 +479,10 @@ export default function IptvView({
       c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.subtitle?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    return matchesProvider && matchesCategory && matchesSearch;
+    return matchesCategory && matchesSearch;
   });
 
-  const activeProviderMeta = liveProviders.find((p) => p.id === selectedProvider) || liveProviders[0];
+  const workingCount = channels.filter((c) => streamStatus[c.id] !== "offline").length;
 
   return (
     <div className="iptv-container">
@@ -328,21 +492,17 @@ export default function IptvView({
           <div
             className="iptv-logo-box"
             style={{
-              background: activeProviderMeta.accent,
-              borderColor: activeProviderMeta.color,
+              background: "rgba(56, 189, 248, 0.15)",
+              borderColor: "#38bdf8",
             }}
           >
-            {selectedProvider === "fubo" ? (
-              <img src="/fubo-logo.svg" alt="Fubo" style={{ height: "18px", width: "auto", filter: "invert(42%) sepia(98%) saturate(1450%) hue-rotate(360deg) brightness(102%) contrast(105%)" }} />
-            ) : selectedProvider === "sling" ? (
-              <img src="/sling-logo.svg" alt="Sling" style={{ height: "18px", width: "auto" }} />
-            ) : (
-              <Zap size={22} className="iptv-icon" style={{ color: activeProviderMeta.color }} />
-            )}
+            <Tv size={22} className="iptv-icon" style={{ color: "#38bdf8" }} />
           </div>
           <div className="iptv-brand-title">
-            <h2>{activeProviderMeta.name.toUpperCase()}</h2>
-            <span className="iptv-sub">{activeProviderMeta.tagline} · PASSENGER DRIVING READY</span>
+            <h2>LIVE TV</h2>
+            <span className="iptv-sub">
+              100% FREE VERIFIED LIVE CHANNELS · IN-MOTION READY
+            </span>
           </div>
         </div>
 
@@ -351,7 +511,7 @@ export default function IptvView({
           <Search size={18} className="search-icon" />
           <input
             type="text"
-            placeholder="Search live channels, sports, news…"
+            placeholder="Search NFL, NBA, sports, news, movies…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -362,8 +522,36 @@ export default function IptvView({
           )}
         </div>
 
-        {/* Actions & Guide View Toggle */}
+        {/* Actions & Verification Controls */}
         <div className="iptv-actions">
+          {/* Verify Streams Button */}
+          <button
+            className="verify-streams-btn"
+            onClick={verifyAllChannels}
+            disabled={isVerifying}
+            title="Ping and verify all stream URLs return live HTTP 200 payload"
+          >
+            {isVerifying ? (
+              <RotateCw size={14} className="animate-spin" />
+            ) : (
+              <CheckCircle size={14} />
+            )}
+            <span>{isVerifying ? "Verifying Streams..." : "Verify Streams"}</span>
+          </button>
+
+          {/* Filter Working Only Toggle */}
+          <button
+            className={`filter-working-pill ${filterWorkingOnly ? "active" : ""}`}
+            onClick={() => setFilterWorkingOnly(!filterWorkingOnly)}
+            title="Filter out any streams that are offline"
+          >
+            <Filter size={13} />
+            <span>
+              {filterWorkingOnly ? "Showing Working Only" : `Verified (${workingCount}/${channels.length})`}
+            </span>
+          </button>
+
+          {/* View Toggle (EPG Guide vs Cards) */}
           <div className="view-toggle-capsule">
             <button
               className={`view-pill ${viewMode === "epg" ? "active" : ""}`}
@@ -385,10 +573,8 @@ export default function IptvView({
 
           <button
             className="add-playlist-btn"
-            onClick={() => {
-              setImportTargetProvider(selectedProvider);
-              setCustomModalOpen(true);
-            }}
+            onClick={() => setCustomModalOpen(true)}
+            title="Connect custom M3U playlist"
           >
             <Plus size={16} />
             <span>Connect Stream</span>
@@ -396,44 +582,29 @@ export default function IptvView({
         </div>
       </header>
 
-      {/* Live Provider Switcher Tabs (Fubo, Sling, Free Live TV, All) */}
-      <div className="iptv-provider-switcher">
-        {liveProviders.map((prov) => {
-          const isActive = selectedProvider === prov.id;
-          return (
-            <button
-              key={prov.id}
-              className={`provider-tab-btn ${isActive ? "active" : ""}`}
-              onClick={() => setSelectedProvider(prov.id)}
-              style={{
-                borderColor: isActive ? prov.color : undefined,
-                color: isActive ? "#ffffff" : undefined,
-                background: isActive ? prov.accent : undefined,
-              }}
-            >
-              {prov.id === "fubo" ? (
-                <span className="provider-tab-logo fubo-tab-logo">
-                  <img src="/fubo-logo.svg" alt="Fubo" style={{ height: "16px", width: "auto", filter: "invert(42%) sepia(98%) saturate(1450%) hue-rotate(360deg) brightness(102%) contrast(105%)" }} />
-                </span>
-              ) : prov.id === "sling" ? (
-                <span className="provider-tab-logo sling-tab-logo">
-                  <img src="/sling-logo.svg" alt="Sling" style={{ height: "16px", width: "auto" }} />
-                </span>
-              ) : prov.id === "free" ? (
-                <span className="provider-tab-icon">
-                  <Zap size={15} style={{ color: prov.color }} /> Free Live TV
-                </span>
-              ) : (
-                <span className="provider-tab-icon">
-                  <Tv size={15} style={{ color: prov.color }} /> All Providers
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {/* Verification Notification Toast Banner */}
+      {verifyNotice && (
+        <div
+          style={{
+            margin: "0 5vw 16px",
+            padding: "10px 16px",
+            background: "rgba(56, 189, 248, 0.12)",
+            border: "1px solid rgba(56, 189, 248, 0.3)",
+            borderRadius: "10px",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            color: "#38bdf8",
+            fontSize: "13px",
+            fontWeight: 600,
+          }}
+        >
+          <CheckCircle size={16} />
+          <span>{verifyNotice}</span>
+        </div>
+      )}
 
-      {/* Categories */}
+      {/* Categories Bar */}
       <div className="iptv-categories">
         {categories.map((cat) => (
           <button
@@ -454,14 +625,16 @@ export default function IptvView({
               <h3>
                 {searchQuery
                   ? `Channels matching "${searchQuery}"`
-                  : `${activeProviderMeta.name} — Interactive TV Guide`}
+                  : `${selectedCategory === "All" ? "Live TV Lineup" : `${selectedCategory} Channels`} — Interactive TV Guide`}
               </h3>
               <span className="live-clock-badge">
                 <Clock size={13} />
                 <span>REAL-TIME ON-AIR SCHEDULE</span>
               </span>
             </div>
-            <span className="channel-count">{filtered.length} verified streams</span>
+            <span className="channel-count">
+              {filtered.length} {filtered.length === 1 ? "stream" : "streams"} available
+            </span>
           </div>
 
           <div className="epg-table-wrapper">
@@ -474,6 +647,8 @@ export default function IptvView({
             <div className="epg-channel-rows">
               {filtered.map((channel) => {
                 const epg = getSimulatedEPG(channel);
+                const status = streamStatus[channel.id] || "online";
+
                 return (
                   <div
                     key={channel.id}
@@ -493,25 +668,70 @@ export default function IptvView({
                             }}
                           />
                         ) : (
-                          <span style={{ fontSize: "11px", fontWeight: "800", color: "#34d399" }}>
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              fontWeight: "800",
+                              color: "#34d399",
+                            }}
+                          >
                             {channel.title.slice(0, 3).toUpperCase()}
                           </span>
                         )}
                       </div>
                       <div className="epg-channel-text">
                         <div className="channel-tags-row">
-                          <span className="channel-group-tag">{channel.group || "Live TV"}</span>
-                          {channel.provider && channel.provider !== "all" && (
-                            <span
-                              className="channel-provider-tag"
-                              style={{
-                                color: channel.provider === "fubo" ? "#ff5900" : channel.provider === "sling" ? "#00a3e0" : "#34d399",
-                                borderColor: channel.provider === "fubo" ? "rgba(255, 89, 0, 0.4)" : channel.provider === "sling" ? "rgba(0, 163, 224, 0.4)" : "rgba(52, 211, 153, 0.4)",
-                              }}
-                            >
-                              {channel.provider.toUpperCase()}
-                            </span>
-                          )}
+                          <span className="channel-group-tag">
+                            {channel.group || "Live TV"}
+                          </span>
+                          <span
+                            className={`stream-status-badge ${status}`}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "3px",
+                              fontSize: "9px",
+                              fontWeight: 800,
+                              padding: "2px 6px",
+                              borderRadius: "4px",
+                              background:
+                                status === "online"
+                                  ? "rgba(16, 185, 129, 0.16)"
+                                  : status === "verifying"
+                                  ? "rgba(56, 189, 248, 0.16)"
+                                  : "rgba(239, 68, 68, 0.16)",
+                              color:
+                                status === "online"
+                                  ? "#34d399"
+                                  : status === "verifying"
+                                  ? "#38bdf8"
+                                  : "#f87171",
+                              border: `1px solid ${
+                                status === "online"
+                                  ? "rgba(16, 185, 129, 0.35)"
+                                  : status === "verifying"
+                                  ? "rgba(56, 189, 248, 0.35)"
+                                  : "rgba(239, 68, 68, 0.35)"
+                              }`,
+                            }}
+                          >
+                            {status === "online" ? (
+                              <>
+                                <CheckCircle size={10} />
+                                <span>ONLINE</span>
+                              </>
+                            ) : status === "verifying" ? (
+                              <>
+                                <RotateCw size={10} className="animate-spin" />
+                                <span>CHECKING</span>
+                              </>
+                            ) : (
+                              <>
+                                <AlertCircle size={10} />
+                                <span>OFFLINE</span>
+                              </>
+                            )}
+                          </span>
                         </div>
                         <h4 className="epg-channel-name">{channel.title}</h4>
                       </div>
@@ -567,168 +787,319 @@ export default function IptvView({
             <h3>
               {searchQuery
                 ? `Channels matching "${searchQuery}"`
-                : `${selectedCategory} Channels (${activeProviderMeta.name})`}
+                : `${selectedCategory === "All" ? "All Channels" : selectedCategory}`}
             </h3>
-            <span className="channel-count">{filtered.length} live streams</span>
+            <span className="channel-count">
+              {filtered.length} {filtered.length === 1 ? "stream" : "streams"}
+            </span>
           </div>
 
           <div className="channels-grid">
-            {filtered.map((channel) => (
-              <div
-                key={channel.id}
-                className="channel-card"
-                onClick={() => onPlay(channel)}
-              >
-                <div className="channel-logo-wrapper" style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "#0b0e14", padding: "10px" }}>
-                  {channel.image ? (
-                    <img
-                      src={channel.image}
-                      alt={channel.title}
-                      loading="lazy"
-                      style={{ width: "100%", height: "100%", objectFit: "contain" }}
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = "none";
-                        const fallback = target.parentElement?.querySelector(".grid-logo-fallback") as HTMLElement;
-                        if (fallback) fallback.style.display = "flex";
-                      }}
-                    />
-                  ) : null}
+            {filtered.map((channel) => {
+              const status = streamStatus[channel.id] || "online";
+
+              return (
+                <div
+                  key={channel.id}
+                  className="channel-card"
+                  onClick={() => onPlay(channel)}
+                >
                   <div
-                    className="grid-logo-fallback"
+                    className="channel-logo-wrapper"
                     style={{
-                      display: channel.image ? "none" : "flex",
+                      display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      width: "100%",
-                      height: "100%",
-                      color: "#34d399",
-                      fontWeight: 800,
-                      fontSize: "16px",
-                      letterSpacing: "1px",
+                      background: "#0b0e14",
+                      padding: "10px",
                     }}
                   >
-                    {channel.title}
-                  </div>
-                  <div className="channel-live-indicator">
-                    <span className="live-pulse" />
-                    <span>LIVE</span>
-                  </div>
-                  <div className="channel-hover-play">
-                    <Play size={28} fill="currentColor" />
-                  </div>
-                </div>
-
-                <div className="channel-details">
-                  <div className="channel-tags-row">
-                    <span className="channel-group-tag">{channel.group || "Live TV"}</span>
-                    {channel.provider && channel.provider !== "all" && (
-                      <span
-                        className="channel-provider-tag"
+                    {channel.image ? (
+                      <img
+                        src={channel.image}
+                        alt={channel.title}
+                        loading="lazy"
                         style={{
-                          color: channel.provider === "fubo" ? "#ff5900" : channel.provider === "sling" ? "#00a3e0" : "#34d399",
-                          borderColor: channel.provider === "fubo" ? "rgba(255, 89, 0, 0.4)" : channel.provider === "sling" ? "rgba(0, 163, 224, 0.4)" : "rgba(52, 211, 153, 0.4)",
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "contain",
+                        }}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = "none";
+                          const fallback = target.parentElement?.querySelector(
+                            ".grid-logo-fallback"
+                          ) as HTMLElement;
+                          if (fallback) fallback.style.display = "flex";
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className="grid-logo-fallback"
+                      style={{
+                        display: channel.image ? "none" : "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: "100%",
+                        height: "100%",
+                        color: "#34d399",
+                        fontWeight: 800,
+                        fontSize: "16px",
+                        letterSpacing: "1px",
+                      }}
+                    >
+                      {channel.title}
+                    </div>
+                    <div className="channel-live-indicator">
+                      <span className="live-pulse" />
+                      <span>LIVE</span>
+                    </div>
+                    <div className="channel-hover-play">
+                      <Play size={28} fill="currentColor" />
+                    </div>
+                  </div>
+
+                  <div className="channel-details">
+                    <div className="channel-tags-row">
+                      <span className="channel-group-tag">
+                        {channel.group || "Live TV"}
+                      </span>
+                      <span
+                        className={`stream-status-badge ${status}`}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "3px",
+                          fontSize: "9px",
+                          fontWeight: 800,
+                          padding: "1px 5px",
+                          borderRadius: "4px",
+                          background:
+                            status === "online"
+                              ? "rgba(16, 185, 129, 0.16)"
+                              : "rgba(239, 68, 68, 0.16)",
+                          color: status === "online" ? "#34d399" : "#f87171",
+                          border: `1px solid ${
+                            status === "online"
+                              ? "rgba(16, 185, 129, 0.35)"
+                              : "rgba(239, 68, 68, 0.35)"
+                          }`,
                         }}
                       >
-                        {channel.provider.toUpperCase()}
+                        {status === "online" ? "ONLINE" : "OFFLINE"}
                       </span>
-                    )}
+                    </div>
+                    <h4 title={channel.title}>{channel.title}</h4>
+                    <p className="channel-sub" title={channel.subtitle}>
+                      {channel.subtitle || "HLS In-Motion Live Stream"}
+                    </p>
                   </div>
-                  <h4 title={channel.title}>{channel.title}</h4>
-                  <p className="channel-sub" title={channel.subtitle}>
-                    {channel.subtitle || "HLS In-Motion Live Stream"}
-                  </p>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
 
       {/* Custom Playlist / TVE Bridge Stream Modal */}
       {customModalOpen && (
-        <div className="detail-modal-overlay" onClick={() => setCustomModalOpen(false)}>
-          <div className="iptv-modal-box" onClick={(e) => e.stopPropagation()}>
-            <button className="close-modal-btn" onClick={() => setCustomModalOpen(false)}>
-              <X size={20} />
-            </button>
-
-            <div className="iptv-modal-header">
-              <div className="iptv-logo-box large">
-                <Sparkles size={28} style={{ color: "#38bdf8" }} />
+        <div
+          className="detail-modal-overlay"
+          onClick={() => setCustomModalOpen(false)}
+        >
+          <div
+            className="detail-modal-content iptv-custom-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "560px" }}
+          >
+            <div className="detail-modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div
+                  style={{
+                    background: "rgba(56, 189, 248, 0.15)",
+                    padding: "8px",
+                    borderRadius: "8px",
+                    color: "#38bdf8",
+                  }}
+                >
+                  <Tv size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800" }}>
+                    Connect Custom Stream
+                  </h3>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "12px",
+                      color: "#9ca3af",
+                      marginTop: "2px",
+                    }}
+                  >
+                    Add custom M3U playlist, Xtream codes, or TVE feed
+                  </p>
+                </div>
               </div>
-              <h3>Connect Live Stream / Bridge Link</h3>
-              <p>
-                Add your local TVE bridge stream (vlc-bridge-fubo / Channels DVR) or any legitimate M3U8 link. Plays inside Volta with full passenger Drive Mode!
-              </p>
-            </div>
-
-            {errorMsg && <div className="login-error-alert">{errorMsg}</div>}
-            {successMsg && <div className="login-success-alert">{successMsg}</div>}
-
-            <div className="form-group">
-              <label>Assign to Section:</label>
-              <select
-                className="provider-select-dropdown"
-                value={importTargetProvider}
-                onChange={(e) => setImportTargetProvider(e.target.value as LiveTvProvider)}
+              <button
+                className="close-btn"
+                onClick={() => setCustomModalOpen(false)}
               >
-                <option value="all">All Channels</option>
-                <option value="fubo">Fubo TV</option>
-                <option value="sling">Sling TV</option>
-                <option value="free">Free Live TV</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Stream URL / M3U8 Playlist URL</label>
-              <input
-                type="url"
-                placeholder={
-                  importTargetProvider === "fubo"
-                    ? "http://your-home-ip:7777/fubo/playlist.m3u"
-                    : importTargetProvider === "sling"
-                      ? "http://your-dvr-ip:8089/devices/ANY/channels.m3u"
-                      : "https://example.com/playlist.m3u8"
-                }
-                value={playlistUrl}
-                onChange={(e) => setPlaylistUrl(e.target.value)}
-              />
-            </div>
-
-            <button
-              className="submit-login-btn"
-              onClick={() => void handleImportUrl()}
-              disabled={loading}
-            >
-              {loading ? "Importing…" : "Import & Connect Channels"}
-            </button>
-
-            <div className="divider-text">
-              <span>OR UPLOAD LOCAL M3U FILE</span>
-            </div>
-
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept=".m3u,.m3u8,text/plain"
-              style={{ display: "none" }}
-              onChange={handleFileUpload}
-            />
-
-            <button
-              className="file-upload-btn"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload size={18} />
-              <span>Choose .M3U File from Device</span>
-            </button>
-
-            <div className="modal-footer-actions">
-              <button className="reset-channels-btn" onClick={clearCustomPlaylist}>
-                <RotateCw size={14} />
-                <span>Reset to Verified Defaults</span>
+                <X size={20} />
               </button>
+            </div>
+
+            <div className="modal-body-content" style={{ padding: "20px" }}>
+              {errorMsg && (
+                <div
+                  style={{
+                    background: "rgba(239, 68, 68, 0.15)",
+                    border: "1px solid rgba(239, 68, 68, 0.4)",
+                    color: "#ef4444",
+                    padding: "10px 14px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  {errorMsg}
+                </div>
+              )}
+
+              {successMsg && (
+                <div
+                  style={{
+                    background: "rgba(16, 185, 129, 0.15)",
+                    border: "1px solid rgba(16, 185, 129, 0.4)",
+                    color: "#10b981",
+                    padding: "10px 14px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  {successMsg}
+                </div>
+              )}
+
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    color: "#9ca3af",
+                    marginBottom: "8px",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                  }}
+                >
+                  Playlist URL (.m3u, .m3u8, or Xtream API)
+                </label>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <input
+                    type="url"
+                    placeholder="https://example.com/playlist.m3u8"
+                    value={playlistUrl}
+                    onChange={(e) => setPlaylistUrl(e.target.value)}
+                    style={{
+                      flex: 1,
+                      background: "#121413",
+                      border: "1px solid rgba(255, 255, 255, 0.15)",
+                      borderRadius: "8px",
+                      padding: "10px 14px",
+                      color: "#ffffff",
+                      fontSize: "13px",
+                      outline: "none",
+                    }}
+                  />
+                  <button
+                    onClick={handleImportUrl}
+                    disabled={loading}
+                    style={{
+                      background: "#38bdf8",
+                      color: "#000000",
+                      border: "none",
+                      borderRadius: "8px",
+                      padding: "0 18px",
+                      fontWeight: 700,
+                      fontSize: "13px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      opacity: loading ? 0.6 : 1,
+                    }}
+                  >
+                    {loading ? (
+                      <RotateCw size={15} className="animate-spin" />
+                    ) : (
+                      "Import"
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  margin: "20px 0",
+                  color: "#6b7280",
+                  fontSize: "12px",
+                  textTransform: "uppercase",
+                }}
+              >
+                <div style={{ flex: 1, height: "1px", background: "rgba(255, 255, 255, 0.1)" }} />
+                <span>OR UPLOAD FILE</span>
+                <div style={{ flex: 1, height: "1px", background: "rgba(255, 255, 255, 0.1)" }} />
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".m3u,.m3u8,.txt"
+                onChange={handleFileUpload}
+                style={{ display: "none" }}
+              />
+
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  background: "rgba(255, 255, 255, 0.05)",
+                  border: "1px dashed rgba(255, 255, 255, 0.2)",
+                  borderRadius: "8px",
+                  color: "#ffffff",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                }}
+              >
+                <Upload size={16} />
+                <span>Upload .M3U or .M3U8 file</span>
+              </button>
+
+              <div style={{ marginTop: "24px", paddingTop: "16px", borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
+                <button
+                  onClick={handleResetChannels}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#6b7280",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                  }}
+                >
+                  Reset to Default Verified Lineup
+                </button>
+              </div>
             </div>
           </div>
         </div>

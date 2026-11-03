@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" width="100%" height="100%">
+  <rect width="320" height="180" rx="16" fill="#080e1a" />
+  <!-- NBC Peacock Fan -->
+  <g transform="translate(160, 50)">
+    <!-- 6 Feathers -->
+    <path d="M 0 -22 C 3 -28 9 -28 12 -22 C 14 -17 8 -5 0 0 C -8 -5 -14 -17 -12 -22 C -9 -28 -3 -28 0 -22 Z" fill="#fabc05" />
+    <path d="M 14 -15 C 20 -20 25 -17 26 -11 C 27 -5 18 3 0 0 C 18 3 27 -5 26 -11 Z" fill="#ea4335" />
+    <path d="M 23 -3 C 29 -5 32 0 30 6 C 27 12 16 13 0 0 C 16 13 27 12 30 6 Z" fill="#a142f4" />
+    <path d="M -14 -15 C -20 -20 -25 -17 -26 -11 C -27 -5 -18 3 0 0 C -18 3 -27 -5 -26 -11 Z" fill="#ff7043" />
+    <path d="M -23 -3 C -29 -5 -32 0 -30 6 C -27 12 -16 13 0 0 C -16 13 -27 12 -30 6 Z" fill="#34a853" />
+    <path d="M 0 0 L 0 -10 Z" fill="#4285f4" />
+    <!-- Center Peacock Body -->
+    <path d="M 0 -8 C 3 -8 4 -4 3 0 C 1 4 -1 4 -3 0 C -4 -4 -3 -8 0 -8 Z" fill="#ffffff" />
+  </g>
+  <!-- NBC SPORTS text -->
+  <text x="160" y="108" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="22" text-anchor="middle" letter-spacing="3">NBC SPORTS</text>
+  <rect x="120" y="120" width="80" height="22" rx="6" fill="#e11d48" />
+  <text x="160" y="135" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="12" text-anchor="middle" letter-spacing="2">NOW</text>
+  <text x="160" y="162" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="10" text-anchor="middle" letter-spacing="3">24/7 LIVE COVERAGE</text>
+</svg>
