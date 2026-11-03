@@ -16,6 +16,7 @@ import {
   Users,
   Check,
   ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import { Media } from "@/lib/media";
 import { readLocal, writeLocal } from "@/lib/storage";
@@ -31,6 +32,7 @@ type YouTubeVideo = {
   uploadedAt: string;
   duration: string;
   category: string;
+  badge?: string;
 };
 
 interface YouTubeAccount {
@@ -161,11 +163,11 @@ export default function YouTubeView({
 
   // User personal account state
   const [account, setAccount] = useState<YouTubeAccount | null>(null);
-  const [viewTab, setViewTab] = useState<"search" | "subscriptions" | "playlists">("search");
+  const [viewTab, setViewTab] = useState<"for-you" | "search" | "subscriptions" | "playlists">("search");
+  const [forYouVideos, setForYouVideos] = useState<YouTubeVideo[]>([]);
   const [subscriptions, setSubscriptions] = useState<SubscribedChannel[]>([]);
   const [playlists, setPlaylists] = useState<UserPlaylist[]>([]);
   const [loadingPersonal, setLoadingPersonal] = useState(false);
-  
 
   // QR Pairing Modal State
   const [pairModalOpen, setPairModalOpen] = useState(false);
@@ -182,6 +184,7 @@ export default function YouTubeView({
         const parsed = JSON.parse(saved);
         if (parsed.accessToken) {
           setAccount(parsed);
+          setViewTab("for-you");
         }
       } catch {
         // ignore
@@ -189,14 +192,25 @@ export default function YouTubeView({
     }
   }, []);
 
-  // When personal account changes, load subscriptions and playlists
+  // When personal account changes, load For You feed, subscriptions, and playlists
   useEffect(() => {
     if (!account?.accessToken) return;
 
     async function loadUserData() {
       setLoadingPersonal(true);
       try {
-        // Fetch Subscriptions
+        // 1. Fetch For You Personal Feed (Liked videos & Subscribed uploads)
+        const feedRes = await fetch(
+          `/api/auth/youtube/feed?token=${encodeURIComponent(account!.accessToken)}`
+        );
+        if (feedRes.ok) {
+          const feedData = await feedRes.json();
+          if (Array.isArray(feedData.feed) && feedData.feed.length > 0) {
+            setForYouVideos(feedData.feed);
+          }
+        }
+
+        // 2. Fetch Subscriptions
         const subRes = await fetch(
           `/api/auth/youtube/subscriptions?token=${encodeURIComponent(account!.accessToken)}`
         );
@@ -207,7 +221,7 @@ export default function YouTubeView({
           }
         }
 
-        // Fetch Playlists
+        // 3. Fetch Playlists
         const playRes = await fetch(
           `/api/auth/youtube/playlists?token=${encodeURIComponent(account!.accessToken)}`
         );
@@ -253,6 +267,7 @@ export default function YouTubeView({
                     if (pollInterval) clearInterval(pollInterval);
                     setPairSuccess(true);
                     setAccount(pollData.profile);
+                    setViewTab("for-you");
                     writeLocal("volta.yt_account", JSON.stringify(pollData.profile));
 
                     setTimeout(() => {
@@ -284,6 +299,7 @@ export default function YouTubeView({
     writeLocal("volta.yt_account", "");
     setAccount(null);
     setViewTab("search");
+    setForYouVideos([]);
     setSubscriptions([]);
     setPlaylists([]);
   }
@@ -292,7 +308,6 @@ export default function YouTubeView({
   async function openPlaylist(playlist: UserPlaylist) {
     if (!account?.accessToken) return;
     setSearching(true);
-    
 
     try {
       const res = await fetch(
@@ -301,17 +316,19 @@ export default function YouTubeView({
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.items)) {
-          const apiVideos: YouTubeVideo[] = data.items.map((item: { youtubeId?: string; title: string; subtitle?: string; image?: string }, idx: number) => ({
-            id: `yt-pl-${item.youtubeId || idx}`,
-            youtubeId: item.youtubeId || "",
-            title: item.title,
-            channel: item.subtitle || "YouTube",
-            thumbnail: item.image || "/art/city.jpg",
-            views: playlist.title,
-            uploadedAt: "My Playlist",
-            duration: "HD",
-            category: "Playlist",
-          }));
+          const apiVideos: YouTubeVideo[] = data.items.map(
+            (item: { youtubeId?: string; title: string; subtitle?: string; image?: string }, idx: number) => ({
+              id: `yt-pl-${item.youtubeId || idx}`,
+              youtubeId: item.youtubeId || "",
+              title: item.title,
+              channel: item.subtitle || "YouTube",
+              thumbnail: item.image || "/art/city.jpg",
+              views: playlist.title,
+              uploadedAt: "My Playlist",
+              duration: "HD",
+              category: "Playlist",
+            })
+          );
           setVideos(apiVideos);
           setViewTab("search");
           setSearchQuery(`Playlist: ${playlist.title}`);
@@ -441,10 +458,7 @@ export default function YouTubeView({
             {searchQuery && (
               <button
                 className="clear-search-btn"
-                onClick={() => {
-                  setSearchQuery("");
-                  
-                }}
+                onClick={() => setSearchQuery("")}
               >
                 <X size={16} />
               </button>
@@ -552,7 +566,7 @@ export default function YouTubeView({
         </div>
       </header>
 
-      {/* Account Navigation Tabs (Search, Subscriptions, Playlists) */}
+      {/* Account Navigation Tabs (For You, Search, Subscriptions, Playlists) */}
       {account && (
         <div
           style={{
@@ -560,26 +574,33 @@ export default function YouTubeView({
             alignItems: "center",
             gap: "10px",
             margin: "0 5vw 14px",
+            flexWrap: "wrap",
           }}
         >
+          {/* For You Tab */}
           <button
-            onClick={() => setViewTab("search")}
+            onClick={() => setViewTab("for-you")}
             style={{
               display: "flex",
               alignItems: "center",
               gap: "6px",
-              padding: "7px 16px",
+              padding: "7px 18px",
               borderRadius: "9999px",
               fontSize: "13px",
               fontWeight: 700,
               cursor: "pointer",
-              background: viewTab === "search" ? "#ffffff" : "rgba(255, 255, 255, 0.05)",
-              color: viewTab === "search" ? "#000000" : "#9ca3af",
-              border: "1px solid rgba(255, 255, 255, 0.1)",
+              background:
+                viewTab === "for-you"
+                  ? "linear-gradient(90deg, #ff0033, #ea580c)"
+                  : "rgba(255, 255, 255, 0.05)",
+              color: "#ffffff",
+              border: viewTab === "for-you" ? "none" : "1px solid rgba(255, 255, 255, 0.1)",
+              boxShadow:
+                viewTab === "for-you" ? "0 4px 15px rgba(255, 0, 51, 0.35)" : "none",
             }}
           >
-            <Search size={14} />
-            <span>Search &amp; Explore</span>
+            <Sparkles size={14} />
+            <span>For You</span>
           </button>
 
           <button
@@ -599,7 +620,7 @@ export default function YouTubeView({
             }}
           >
             <Users size={14} />
-            <span>My Subscriptions ({subscriptions.length})</span>
+            <span>Subscriptions ({subscriptions.length})</span>
           </button>
 
           <button
@@ -619,7 +640,27 @@ export default function YouTubeView({
             }}
           >
             <ListVideo size={14} />
-            <span>My Playlists ({playlists.length})</span>
+            <span>Playlists ({playlists.length})</span>
+          </button>
+
+          <button
+            onClick={() => setViewTab("search")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "7px 16px",
+              borderRadius: "9999px",
+              fontSize: "13px",
+              fontWeight: 700,
+              cursor: "pointer",
+              background: viewTab === "search" ? "#ffffff" : "rgba(255, 255, 255, 0.05)",
+              color: viewTab === "search" ? "#000000" : "#9ca3af",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+            }}
+          >
+            <Search size={14} />
+            <span>Search &amp; Explore</span>
           </button>
         </div>
       )}
@@ -648,8 +689,167 @@ export default function YouTubeView({
         {directError && <span className="direct-error-text">{directError}</span>}
       </div>
 
-      {/* Main View Content: Subscriptions View */}
-      {viewTab === "subscriptions" ? (
+      {/* MAIN CONTENT: FOR YOU TAB */}
+      {viewTab === "for-you" && account ? (
+        <section className="youtube-grid-section">
+          {/* Subscribed Creators Horizontal Quick Bar */}
+          {subscriptions.length > 0 && (
+            <div style={{ marginBottom: "24px" }}>
+              <span
+                style={{
+                  display: "block",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  color: "#6b7280",
+                  letterSpacing: "1px",
+                  textTransform: "uppercase",
+                  marginBottom: "12px",
+                }}
+              >
+                Your Subscribed Creators
+              </span>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "14px",
+                  overflowX: "auto",
+                  paddingBottom: "8px",
+                  scrollbarWidth: "none",
+                }}
+              >
+                {subscriptions.map((sub) => (
+                  <button
+                    key={sub.id}
+                    onClick={() => {
+                      setSearchQuery(sub.title);
+                      setViewTab("search");
+                    }}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "6px",
+                      cursor: "pointer",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <img
+                      src={sub.thumbnail || "/art/city.jpg"}
+                      alt={sub.title}
+                      style={{
+                        width: "56px",
+                        height: "56px",
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        border: "2px solid rgba(255, 255, 255, 0.15)",
+                        transition: "all 0.2s",
+                      }}
+                    />
+                    <span
+                      style={{
+                        color: "#9ca3af",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        maxWidth: "68px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {sub.title}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* For You Video Feed Header */}
+          <div className="section-title-row">
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <Sparkles size={18} style={{ color: "#ff0033" }} />
+              <h3>For You • Subscriptions &amp; Liked Feed</h3>
+            </div>
+            {loadingPersonal && <LoaderCircle className="spin" size={20} />}
+          </div>
+
+          {forYouVideos.length > 0 ? (
+            <div className="youtube-video-grid">
+              {forYouVideos.map((vid) => (
+                <div key={vid.id} className="youtube-card" onClick={() => playVideo(vid)}>
+                  <div className="yt-thumb-wrapper">
+                    <img
+                      src={vid.thumbnail}
+                      alt={vid.title}
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/art/city.jpg";
+                      }}
+                    />
+                    <span
+                      className={`yt-duration-badge ${vid.duration === "LIVE" ? "live-badge" : ""}`}
+                    >
+                      {vid.duration}
+                    </span>
+                    {vid.badge && (
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: "8px",
+                          left: "8px",
+                          background: vid.badge === "LIKED" ? "#ef4444" : "#38bdf8",
+                          color: "#ffffff",
+                          fontSize: "9px",
+                          fontWeight: 800,
+                          padding: "2px 6px",
+                          borderRadius: "4px",
+                          letterSpacing: "0.5px",
+                        }}
+                      >
+                        {vid.badge}
+                      </span>
+                    )}
+                    <div className="yt-hover-overlay">
+                      <Play size={36} fill="currentColor" />
+                    </div>
+                  </div>
+
+                  <div className="yt-meta-row">
+                    <img
+                      src={vid.channelAvatar || "/art/city.jpg"}
+                      alt={vid.channel}
+                      className="yt-channel-avatar"
+                    />
+                    <div className="yt-text-box">
+                      <h4 title={vid.title}>{vid.title}</h4>
+                      <div className="yt-channel-name">
+                        <span>{vid.channel}</span>
+                        <CheckCircle2 size={12} className="verified-icon" />
+                      </div>
+                      <div className="yt-stats">
+                        <span>{vid.views}</span>
+                        <span>•</span>
+                        <span>{vid.uploadedAt}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", padding: "40px 20px", color: "#9ca3af" }}>
+              {loadingPersonal ? (
+                <p>Syncing your personal YouTube subscriptions &amp; likes…</p>
+              ) : (
+                <p>No videos found yet. Explore below or click your subscriptions to browse creators!</p>
+              )}
+            </div>
+          )}
+        </section>
+      ) : viewTab === "subscriptions" ? (
+        /* Subscriptions View */
         <section className="youtube-grid-section">
           <div className="section-title-row">
             <h3>Subscribed Channels</h3>
@@ -880,7 +1080,7 @@ export default function YouTubeView({
                   Connected Successfully!
                 </h3>
                 <p style={{ color: "#9ca3af", fontSize: "14px" }}>
-                  Your personal subscriptions &amp; playlists are now loaded.
+                  Your personal For You feed, subscriptions &amp; playlists are now loaded.
                 </p>
               </div>
             ) : (
@@ -916,7 +1116,7 @@ export default function YouTubeView({
                   }}
                 >
                   Scan this QR code with your phone camera to sign into your personal YouTube account.
-                  Your subscriptions and playlists will automatically appear in your Volta profile.
+                  Your For You recommendations, subscriptions, and playlists will automatically sync to your Volta profile.
                 </p>
 
                 {/* QR Code Container */}
