@@ -54,7 +54,6 @@ import { StremioMeta } from "@/lib/stremio";
 import YouTubeView from "./youtube-view";
 import StremioView from "./stremio-view";
 import IptvView from "./iptv-view";
-import TeslaDock from "./tesla-dock";
 import { Crown } from "lucide-react";
 import SecretMenu from "./secret-menu";
 import { getActiveUser, isMasterAdmin } from "@/lib/accounts";
@@ -1688,11 +1687,6 @@ export default function Entertainment() {
           </section>
         </div>
       )}
-      <TeslaDock
-        inMotion={true}
-        onOpenSettings={() => navigate("Settings")}
-        onOpenAppHub={() => navigate("Home")}
-      />
     </div>
   );
 }

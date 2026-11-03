@@ -9,8 +9,16 @@ import {
   X,
   LoaderCircle,
   Link as LinkIcon,
+  Smartphone,
+  LogOut,
+  RotateCw,
+  ListVideo,
+  Users,
+  Check,
+  ExternalLink,
 } from "lucide-react";
 import { Media } from "@/lib/media";
+import { readLocal, writeLocal } from "@/lib/storage";
 
 type YouTubeVideo = {
   id: string;
@@ -24,6 +32,28 @@ type YouTubeVideo = {
   duration: string;
   category: string;
 };
+
+interface YouTubeAccount {
+  title: string;
+  avatar: string;
+  channelId: string;
+  accessToken: string;
+  expiresAt: number;
+}
+
+interface SubscribedChannel {
+  id: string;
+  title: string;
+  thumbnail: string;
+  description: string;
+}
+
+interface UserPlaylist {
+  id: string;
+  title: string;
+  thumbnail: string;
+  itemCount: number;
+}
 
 const curatedVideos: YouTubeVideo[] = [
   {
@@ -129,12 +159,177 @@ export default function YouTubeView({
   const [videos, setVideos] = useState<YouTubeVideo[]>(curatedVideos);
   const [searching, setSearching] = useState(false);
 
+  // User personal account state
+  const [account, setAccount] = useState<YouTubeAccount | null>(null);
+  const [viewTab, setViewTab] = useState<"search" | "subscriptions" | "playlists">("search");
+  const [subscriptions, setSubscriptions] = useState<SubscribedChannel[]>([]);
+  const [playlists, setPlaylists] = useState<UserPlaylist[]>([]);
+  const [loadingPersonal, setLoadingPersonal] = useState(false);
+  
+
+  // QR Pairing Modal State
+  const [pairModalOpen, setPairModalOpen] = useState(false);
+  const [pairCode, setPairCode] = useState("");
+  const [pairUrl, setPairUrl] = useState("");
+  const [directAuthUrl, setDirectAuthUrl] = useState("");
+  const [pairSuccess, setPairSuccess] = useState(false);
+
+  // Load saved personal account on mount
+  useEffect(() => {
+    const saved = readLocal("volta.yt_account", "");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.accessToken) {
+          setAccount(parsed);
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  // When personal account changes, load subscriptions and playlists
+  useEffect(() => {
+    if (!account?.accessToken) return;
+
+    async function loadUserData() {
+      setLoadingPersonal(true);
+      try {
+        // Fetch Subscriptions
+        const subRes = await fetch(
+          `/api/auth/youtube/subscriptions?token=${encodeURIComponent(account!.accessToken)}`
+        );
+        if (subRes.ok) {
+          const subData = await subRes.json();
+          if (Array.isArray(subData.channels)) {
+            setSubscriptions(subData.channels);
+          }
+        }
+
+        // Fetch Playlists
+        const playRes = await fetch(
+          `/api/auth/youtube/playlists?token=${encodeURIComponent(account!.accessToken)}`
+        );
+        if (playRes.ok) {
+          const playData = await playRes.json();
+          if (Array.isArray(playData.playlists)) {
+            setPlaylists(playData.playlists);
+          }
+        }
+      } catch {
+        // ignore
+      } finally {
+        setLoadingPersonal(false);
+      }
+    }
+
+    loadUserData();
+  }, [account]);
+
+  // Pair Modal: initialize session and poll for completion
+  useEffect(() => {
+    if (!pairModalOpen) return;
+    let pollInterval: NodeJS.Timeout | null = null;
+    let cancelled = false;
+
+    async function initPairing() {
+      try {
+        const res = await fetch("/api/auth/youtube/login");
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled) {
+            setPairCode(data.code);
+            setPairUrl(data.pairUrl);
+            setDirectAuthUrl(data.authUrl);
+
+            // Start polling every 2.5 seconds
+            pollInterval = setInterval(async () => {
+              try {
+                const pollRes = await fetch(`/api/auth/youtube/poll?code=${data.code}`);
+                if (pollRes.ok) {
+                  const pollData = await pollRes.json();
+                  if (pollData.connected && pollData.profile) {
+                    if (pollInterval) clearInterval(pollInterval);
+                    setPairSuccess(true);
+                    setAccount(pollData.profile);
+                    writeLocal("volta.yt_account", JSON.stringify(pollData.profile));
+
+                    setTimeout(() => {
+                      setPairModalOpen(false);
+                      setPairSuccess(false);
+                    }, 1800);
+                  }
+                }
+              } catch {
+                // ignore
+              }
+            }, 2500);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    initPairing();
+
+    return () => {
+      cancelled = true;
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [pairModalOpen]);
+
+  function handleDisconnect() {
+    writeLocal("volta.yt_account", "");
+    setAccount(null);
+    setViewTab("search");
+    setSubscriptions([]);
+    setPlaylists([]);
+  }
+
+  // Load playlist items when a user clicks a playlist card
+  async function openPlaylist(playlist: UserPlaylist) {
+    if (!account?.accessToken) return;
+    setSearching(true);
+    
+
+    try {
+      const res = await fetch(
+        `/api/auth/youtube/playlists?playlistId=${encodeURIComponent(playlist.id)}&token=${encodeURIComponent(account.accessToken)}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.items)) {
+          const apiVideos: YouTubeVideo[] = data.items.map((item: { youtubeId?: string; title: string; subtitle?: string; image?: string }, idx: number) => ({
+            id: `yt-pl-${item.youtubeId || idx}`,
+            youtubeId: item.youtubeId || "",
+            title: item.title,
+            channel: item.subtitle || "YouTube",
+            thumbnail: item.image || "/art/city.jpg",
+            views: playlist.title,
+            uploadedAt: "My Playlist",
+            duration: "HD",
+            category: "Playlist",
+          }));
+          setVideos(apiVideos);
+          setViewTab("search");
+          setSearchQuery(`Playlist: ${playlist.title}`);
+        }
+      }
+    } catch {
+      // ignore
+    } finally {
+      setSearching(false);
+    }
+  }
+
   // Search effect via server API if query exists
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      if (selectedCategory === "All") {
+    if (!searchQuery.trim() || searchQuery.startsWith("Playlist:")) {
+      if (selectedCategory === "All" && !searchQuery.startsWith("Playlist:")) {
         setVideos(curatedVideos);
-      } else {
+      } else if (!searchQuery.startsWith("Playlist:")) {
         setVideos(curatedVideos.filter((v) => v.category === selectedCategory));
       }
       return;
@@ -160,25 +355,18 @@ export default function YouTubeView({
             }));
             setVideos(apiVideos);
           } else {
-            // Filter local fallback
             setVideos(
               curatedVideos.filter((v) =>
-                v.title.toLowerCase().includes(searchQuery.toLowerCase()),
-              ),
+                v.title.toLowerCase().includes(searchQuery.toLowerCase())
+              )
             );
           }
-        } else {
-          setVideos(
-            curatedVideos.filter((v) =>
-              v.title.toLowerCase().includes(searchQuery.toLowerCase()),
-            ),
-          );
         }
       } catch {
         setVideos(
           curatedVideos.filter((v) =>
-            v.title.toLowerCase().includes(searchQuery.toLowerCase()),
-          ),
+            v.title.toLowerCase().includes(searchQuery.toLowerCase())
+          )
         );
       } finally {
         setSearching(false);
@@ -206,9 +394,8 @@ export default function YouTubeView({
     const url = directUrl.trim();
     if (!url) return;
 
-    // Extract YouTube ID
     const match = url.match(
-      /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i,
+      /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i
     );
     if (match && match[1]) {
       const ytId = match[1];
@@ -244,12 +431,21 @@ export default function YouTubeView({
           <div className="search-input-wrapper">
             <input
               type="text"
-              placeholder="Search YouTube videos and live channels…"
+              placeholder="Search YouTube videos, creators and live streams…"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                if (viewTab !== "search") setViewTab("search");
+              }}
             />
             {searchQuery && (
-              <button className="clear-search-btn" onClick={() => setSearchQuery("")}>
+              <button
+                className="clear-search-btn"
+                onClick={() => {
+                  setSearchQuery("");
+                  
+                }}
+              >
                 <X size={16} />
               </button>
             )}
@@ -258,7 +454,175 @@ export default function YouTubeView({
             <Search size={18} />
           </button>
         </div>
+
+        {/* Personal Account Profile / Pair Phone Button */}
+        <div className="youtube-account-header">
+          {account ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                background: "rgba(255, 255, 255, 0.06)",
+                border: "1px solid rgba(255, 255, 255, 0.12)",
+                borderRadius: "9999px",
+                padding: "4px 12px 4px 6px",
+              }}
+            >
+              {account.avatar ? (
+                <img
+                  src={account.avatar}
+                  alt={account.title}
+                  style={{
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "50%",
+                    background: "#38bdf8",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: 700,
+                    fontSize: "12px",
+                  }}
+                >
+                  {account.title.slice(0, 1).toUpperCase()}
+                </div>
+              )}
+              <span
+                style={{
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  color: "#ffffff",
+                  maxWidth: "110px",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {account.title}
+              </span>
+              <button
+                onClick={handleDisconnect}
+                title="Disconnect Account"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#9ca3af",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "4px",
+                }}
+              >
+                <LogOut size={14} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setPairModalOpen(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                background: "rgba(255, 0, 51, 0.15)",
+                border: "1px solid rgba(255, 0, 51, 0.35)",
+                color: "#ffffff",
+                padding: "8px 16px",
+                borderRadius: "9999px",
+                fontSize: "13px",
+                fontWeight: 700,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                transition: "all 0.2s",
+              }}
+            >
+              <Smartphone size={16} style={{ color: "#ff0033" }} />
+              <span>Connect YouTube</span>
+            </button>
+          )}
+        </div>
       </header>
+
+      {/* Account Navigation Tabs (Search, Subscriptions, Playlists) */}
+      {account && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            margin: "0 5vw 14px",
+          }}
+        >
+          <button
+            onClick={() => setViewTab("search")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "7px 16px",
+              borderRadius: "9999px",
+              fontSize: "13px",
+              fontWeight: 700,
+              cursor: "pointer",
+              background: viewTab === "search" ? "#ffffff" : "rgba(255, 255, 255, 0.05)",
+              color: viewTab === "search" ? "#000000" : "#9ca3af",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+            }}
+          >
+            <Search size={14} />
+            <span>Search &amp; Explore</span>
+          </button>
+
+          <button
+            onClick={() => setViewTab("subscriptions")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "7px 16px",
+              borderRadius: "9999px",
+              fontSize: "13px",
+              fontWeight: 700,
+              cursor: "pointer",
+              background: viewTab === "subscriptions" ? "#ffffff" : "rgba(255, 255, 255, 0.05)",
+              color: viewTab === "subscriptions" ? "#000000" : "#9ca3af",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+            }}
+          >
+            <Users size={14} />
+            <span>My Subscriptions ({subscriptions.length})</span>
+          </button>
+
+          <button
+            onClick={() => setViewTab("playlists")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "7px 16px",
+              borderRadius: "9999px",
+              fontSize: "13px",
+              fontWeight: 700,
+              cursor: "pointer",
+              background: viewTab === "playlists" ? "#ffffff" : "rgba(255, 255, 255, 0.05)",
+              color: viewTab === "playlists" ? "#000000" : "#9ca3af",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+            }}
+          >
+            <ListVideo size={14} />
+            <span>My Playlists ({playlists.length})</span>
+          </button>
+        </div>
+      )}
 
       {/* Direct URL Input Bar */}
       <div className="direct-url-bar">
@@ -284,78 +648,379 @@ export default function YouTubeView({
         {directError && <span className="direct-error-text">{directError}</span>}
       </div>
 
-      {/* Category Pills */}
-      <div className="youtube-categories">
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            className={`category-pill ${selectedCategory === cat && !searchQuery ? "active" : ""}`}
-            onClick={() => {
-              setSelectedCategory(cat);
-              setSearchQuery("");
+      {/* Main View Content: Subscriptions View */}
+      {viewTab === "subscriptions" ? (
+        <section className="youtube-grid-section">
+          <div className="section-title-row">
+            <h3>Subscribed Channels</h3>
+            {loadingPersonal && <LoaderCircle className="spin" size={20} />}
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+              gap: "16px",
+              margin: "20px 0",
             }}
           >
-            {cat}
-          </button>
-        ))}
-      </div>
-
-      {/* Video Grid Section */}
-      <section className="youtube-grid-section">
-        <div className="section-title-row">
-          <h3>
-            {searchQuery
-              ? `Results for "${searchQuery}"`
-              : selectedCategory === "All"
-                ? "Recommended for Tesla Passenger"
-                : selectedCategory}
-          </h3>
-          {searching && <LoaderCircle className="spin" size={20} />}
-        </div>
-
-        <div className="youtube-video-grid">
-          {videos.map((vid) => (
-            <div key={vid.id} className="youtube-card" onClick={() => playVideo(vid)}>
-              <div className="yt-thumb-wrapper">
+            {subscriptions.map((sub) => (
+              <div
+                key={sub.id}
+                onClick={() => {
+                  setSearchQuery(sub.title);
+                  setViewTab("search");
+                }}
+                style={{
+                  background: "#141715",
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                  borderRadius: "16px",
+                  padding: "16px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  textAlign: "center",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+              >
                 <img
-                  src={vid.thumbnail}
-                  alt={vid.title}
-                  loading="lazy"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = "/art/city.jpg";
+                  src={sub.thumbnail || "/art/city.jpg"}
+                  alt={sub.title}
+                  style={{
+                    width: "72px",
+                    height: "72px",
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                    marginBottom: "12px",
                   }}
                 />
-                <span className={`yt-duration-badge ${vid.duration === "LIVE" ? "live-badge" : ""}`}>
-                  {vid.duration}
+                <h4 style={{ margin: "0 0 6px", fontSize: "14px", fontWeight: 700, color: "#fff" }}>
+                  {sub.title}
+                </h4>
+                <span style={{ fontSize: "11px", color: "#38bdf8", fontWeight: 600 }}>
+                  Browse Videos →
                 </span>
-                <div className="yt-hover-overlay">
-                  <Play size={36} fill="currentColor" />
-                </div>
               </div>
+            ))}
+          </div>
+        </section>
+      ) : viewTab === "playlists" ? (
+        /* Playlists View */
+        <section className="youtube-grid-section">
+          <div className="section-title-row">
+            <h3>Your Custom Playlists &amp; Mixes</h3>
+            {loadingPersonal && <LoaderCircle className="spin" size={20} />}
+          </div>
 
-              <div className="yt-meta-row">
-                <img
-                  src={vid.channelAvatar || "/art/city.jpg"}
-                  alt={vid.channel}
-                  className="yt-channel-avatar"
-                />
-                <div className="yt-text-box">
-                  <h4 title={vid.title}>{vid.title}</h4>
-                  <div className="yt-channel-name">
-                    <span>{vid.channel}</span>
-                    <CheckCircle2 size={12} className="verified-icon" />
-                  </div>
-                  <div className="yt-stats">
-                    <span>{vid.views}</span>
-                    <span>•</span>
-                    <span>{vid.uploadedAt}</span>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+              gap: "20px",
+              margin: "20px 0",
+            }}
+          >
+            {playlists.map((pl) => (
+              <div
+                key={pl.id}
+                onClick={() => openPlaylist(pl)}
+                style={{
+                  background: "#141715",
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                  borderRadius: "16px",
+                  overflow: "hidden",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+              >
+                <div style={{ position: "relative", aspectRatio: "16 / 9", background: "#000" }}>
+                  <img
+                    src={pl.thumbnail || "/art/city.jpg"}
+                    alt={pl.title}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: "8px",
+                      right: "8px",
+                      background: "rgba(0, 0, 0, 0.8)",
+                      padding: "4px 8px",
+                      borderRadius: "6px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {pl.itemCount} videos
                   </div>
                 </div>
+                <div style={{ padding: "14px" }}>
+                  <h4 style={{ margin: "0 0 4px", fontSize: "15px", fontWeight: 700, color: "#fff" }}>
+                    {pl.title}
+                  </h4>
+                  <span style={{ fontSize: "12px", color: "#10b981", fontWeight: 600 }}>
+                    Click to load videos
+                  </span>
+                </div>
               </div>
+            ))}
+          </div>
+        </section>
+      ) : (
+        /* Default Search & Explore View */
+        <>
+          {/* Category Pills */}
+          <div className="youtube-categories">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                className={`category-pill ${selectedCategory === cat && !searchQuery ? "active" : ""}`}
+                onClick={() => {
+                  setSelectedCategory(cat);
+                  setSearchQuery("");
+                }}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Video Grid Section */}
+          <section className="youtube-grid-section">
+            <div className="section-title-row">
+              <h3>
+                {searchQuery
+                  ? `Results for "${searchQuery}"`
+                  : selectedCategory === "All"
+                    ? "Recommended for Tesla Passenger"
+                    : selectedCategory}
+              </h3>
+              {searching && <LoaderCircle className="spin" size={20} />}
             </div>
-          ))}
+
+            <div className="youtube-video-grid">
+              {videos.map((vid) => (
+                <div key={vid.id} className="youtube-card" onClick={() => playVideo(vid)}>
+                  <div className="yt-thumb-wrapper">
+                    <img
+                      src={vid.thumbnail}
+                      alt={vid.title}
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/art/city.jpg";
+                      }}
+                    />
+                    <span
+                      className={`yt-duration-badge ${vid.duration === "LIVE" ? "live-badge" : ""}`}
+                    >
+                      {vid.duration}
+                    </span>
+                    <div className="yt-hover-overlay">
+                      <Play size={36} fill="currentColor" />
+                    </div>
+                  </div>
+
+                  <div className="yt-meta-row">
+                    <img
+                      src={vid.channelAvatar || "/art/city.jpg"}
+                      alt={vid.channel}
+                      className="yt-channel-avatar"
+                    />
+                    <div className="yt-text-box">
+                      <h4 title={vid.title}>{vid.title}</h4>
+                      <div className="yt-channel-name">
+                        <span>{vid.channel}</span>
+                        <CheckCircle2 size={12} className="verified-icon" />
+                      </div>
+                      <div className="yt-stats">
+                        <span>{vid.views}</span>
+                        <span>•</span>
+                        <span>{vid.uploadedAt}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
+
+      {/* QR Phone Pairing Modal */}
+      {pairModalOpen && (
+        <div
+          className="detail-modal-overlay"
+          onClick={() => setPairModalOpen(false)}
+        >
+          <div
+            className="detail-modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "460px", textAlign: "center", padding: "32px 24px" }}
+          >
+            {pairSuccess ? (
+              <div style={{ padding: "30px 0" }}>
+                <div
+                  style={{
+                    width: "64px",
+                    height: "64px",
+                    borderRadius: "50%",
+                    background: "rgba(16, 185, 129, 0.2)",
+                    border: "1px solid rgba(16, 185, 129, 0.5)",
+                    color: "#10b981",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    margin: "0 auto 16px",
+                  }}
+                >
+                  <Check size={36} />
+                </div>
+                <h3 style={{ fontSize: "22px", fontWeight: 800, margin: "0 0 8px" }}>
+                  Connected Successfully!
+                </h3>
+                <p style={{ color: "#9ca3af", fontSize: "14px" }}>
+                  Your personal subscriptions &amp; playlists are now loaded.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <Youtube size={22} style={{ color: "#ff0033" }} />
+                    <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 800 }}>
+                      Connect Personal YouTube
+                    </h3>
+                  </div>
+                  <button
+                    className="close-btn"
+                    onClick={() => setPairModalOpen(false)}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <p
+                  style={{
+                    color: "#9ca3af",
+                    fontSize: "13px",
+                    lineHeight: 1.5,
+                    margin: "0 0 20px",
+                  }}
+                >
+                  Scan this QR code with your phone camera to sign into your personal YouTube account.
+                  Your subscriptions and playlists will automatically appear in your Volta profile.
+                </p>
+
+                {/* QR Code Container */}
+                <div
+                  style={{
+                    background: "#ffffff",
+                    borderRadius: "16px",
+                    padding: "16px",
+                    display: "inline-block",
+                    margin: "0 auto 16px",
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.5)",
+                  }}
+                >
+                  {pairUrl ? (
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(pairUrl)}`}
+                      alt="Pairing QR Code"
+                      style={{ width: "180px", height: "180px", display: "block" }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "180px",
+                        height: "180px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#000",
+                      }}
+                    >
+                      <RotateCw className="spin" size={24} />
+                    </div>
+                  )}
+                </div>
+
+                {/* Pair Code Badge */}
+                <div style={{ marginBottom: "20px" }}>
+                  <span
+                    style={{
+                      display: "block",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      color: "#6b7280",
+                      letterSpacing: "1px",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    PAIRING CODE
+                  </span>
+                  <div
+                    style={{
+                      fontFamily: "ui-monospace, monospace",
+                      fontSize: "24px",
+                      fontWeight: 800,
+                      letterSpacing: "4px",
+                      color: "#38bdf8",
+                    }}
+                  >
+                    {pairCode || "••••••"}
+                  </div>
+                </div>
+
+                {/* Waiting Status */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    color: "#9ca3af",
+                    fontSize: "13px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <RotateCw size={14} className="spin" />
+                  <span>Waiting for phone sign-in approval…</span>
+                </div>
+
+                {/* Direct link option if on device */}
+                {directAuthUrl && (
+                  <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "14px" }}>
+                    <a
+                      href={directAuthUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: "#9ca3af",
+                        fontSize: "12px",
+                        textDecoration: "underline",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      <span>Or sign in on this device directly</span>
+                      <ExternalLink size={12} />
+                    </a>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
-      </section>
+      )}
     </div>
   );
 }
