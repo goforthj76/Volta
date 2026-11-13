@@ -135,6 +135,15 @@ export default function Entertainment() {
   };
 
   useEffect(() => {
+    const handleNav = (e: Event) => {
+      const pageName = (e as CustomEvent).detail;
+      if (typeof pageName === "string") {
+        setActive(null);
+        navigate(pageName);
+      }
+    };
+    window.addEventListener("volta-navigate", handleNav);
+
     const outcome = new URLSearchParams(location.search).get("connection");
     if (outcome) {
       setToast(

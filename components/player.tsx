@@ -63,6 +63,7 @@ export default function Player({
   const lastSave = useRef(0);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const animFrameId = useRef<number | null>(null);
+  const rvfcId = useRef<number | null>(null);
 
   // Canvas render loop for Tesla in-motion playback
   const renderCanvasFrame = useCallback(() => {
@@ -117,23 +118,40 @@ export default function Player({
 
         try {
           ctx.drawImage(video, drawX, drawY, drawW, drawH);
-        } catch {
-          // Ignore transient frame draw error during video initialization
+        } catch (err) {
+          // Capture cross-origin / tainted canvas or transient frame errors
+          console.warn("Canvas drawImage notice:", err);
         }
       }
     }
 
-    animFrameId.current = requestAnimationFrame(renderCanvasFrame);
+    if (
+      video &&
+      "requestVideoFrameCallback" in video &&
+      typeof (video as CustomVideoElement).requestVideoFrameCallback === "function"
+    ) {
+      rvfcId.current = (video as CustomVideoElement).requestVideoFrameCallback!(() => {
+        renderCanvasFrame();
+      });
+    } else {
+      animFrameId.current = requestAnimationFrame(renderCanvasFrame);
+    }
   }, [inMotionMode, aspectMode]);
 
   // Start canvas loop when playing
   useEffect(() => {
+    const v = videoRef.current;
     if (inMotionMode) {
       renderCanvasFrame();
     }
     return () => {
+      if (v && rvfcId.current !== null && "cancelVideoFrameCallback" in v) {
+        (v as CustomVideoElement).cancelVideoFrameCallback!(rvfcId.current);
+        rvfcId.current = null;
+      }
       if (animFrameId.current !== null) {
         cancelAnimationFrame(animFrameId.current);
+        animFrameId.current = null;
       }
     };
   }, [inMotionMode, renderCanvasFrame]);
@@ -369,7 +387,7 @@ export default function Player({
       el.src = targetUrl;
       let attemptedDirectFallback = false;
       el.onerror = () => {
-        if (!attemptedDirectFallback && targetUrl.startsWith("http://")) {
+        if (!attemptedDirectFallback && (targetUrl.startsWith("http://") || targetUrl.startsWith("https://"))) {
           attemptedDirectFallback = true;
           el.src = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
           void startPlayback();
@@ -515,10 +533,23 @@ export default function Player({
             referrerPolicy="strict-origin-when-cross-origin"
           />
           <div className="youtube-hint-banner">
-            <span>
-              Tesla center console blocks standard video elements in Drive. For in-motion driving playback,
-              use Live TV, Stremio streams, or direct video streams.
-            </span>
+            <div className="youtube-hint-content">
+              <strong>⚠️ Tesla Driving In-Motion Restriction Notice:</strong>
+              <span>
+                Tesla&apos;s browser only plays <strong>audio</strong> for YouTube embeds while in Drive because iframes cannot be routed through HTML5 Canvas.
+                For full in-motion <strong>video + audio</strong> while driving, use <strong>Live TV</strong>, <strong>Stremio</strong>, or <strong>Direct Streams</strong>!
+              </span>
+            </div>
+            <button
+              type="button"
+              className="youtube-switch-livetv-btn"
+              onClick={() => {
+                onClose();
+                window.dispatchEvent(new CustomEvent("volta-navigate", { detail: "Live TV" }));
+              }}
+            >
+              Switch to Live TV (In-Motion)
+            </button>
           </div>
         </div>
       ) : (
@@ -534,6 +565,7 @@ export default function Player({
             className={`video ${inMotionMode ? "video-offscreen" : ""}`}
             ref={videoRef}
             preload="auto"
+            crossOrigin="anonymous"
             poster={media.image}
             playsInline
             onWaiting={() => setWaiting(true)}

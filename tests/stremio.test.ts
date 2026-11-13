@@ -9,7 +9,7 @@ test("defaultChannels includes verified live HLS streams with valid categories",
     assert.ok(ch.id);
     assert.ok(ch.title);
     assert.ok(ch.url?.startsWith("https://"));
-    assert.ok(["Sports", "News", "Tech & Space", "Music", "Entertainment"].includes(ch.group || ""));
+    assert.ok(["Sports", "News", "Tech & Space", "Music", "Entertainment", "Movies"].includes(ch.group || ""));
     assert.equal(ch.source, "Live TV");
   }
 });

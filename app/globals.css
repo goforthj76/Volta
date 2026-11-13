@@ -2655,7 +2655,7 @@ textarea {
   height: 100%;
   object-fit: contain;
   display: block;
-  z-index: 1;
+  z-index: 2;
 }
 
 .player-canvas.canvas-hidden {
@@ -2663,13 +2663,14 @@ textarea {
 }
 
 .video-offscreen {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0.001;
-  z-index: 0;
-  pointer-events: none;
+  position: fixed !important;
+  top: -9999px !important;
+  left: -9999px !important;
+  width: 320px !important;
+  height: 180px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  z-index: -999 !important;
 }
 
 .youtube-embed-container {
@@ -2688,12 +2689,46 @@ textarea {
 }
 
 .youtube-hint-banner {
-  background: #191c19;
-  border-top: 1px solid #ffffff15;
-  padding: 10px 20px;
-  font-size: 11px;
-  color: #9da696;
-  text-align: center;
+  background: #0f172a;
+  border-top: 1px solid rgba(234, 179, 8, 0.35);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.youtube-hint-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11.5px;
+  color: #cbd5e1;
+  text-align: left;
+}
+
+.youtube-hint-content strong {
+  color: #fef08a;
+}
+
+.youtube-switch-livetv-btn {
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #38bdf8 0%, #2563eb 100%);
+  border: none;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+}
+
+.youtube-switch-livetv-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
 }
 
 .unmute-banner-pill {
