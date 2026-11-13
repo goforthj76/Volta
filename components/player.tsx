@@ -77,8 +77,8 @@ export default function Player({
       if (ctx) {
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const rect = canvas.getBoundingClientRect();
-        const targetW = Math.max(1, Math.round(rect.width * dpr));
-        const targetH = Math.max(1, Math.round(rect.height * dpr));
+        const targetW = Math.max(320, Math.round((rect.width || window.innerWidth || 1280) * dpr));
+        const targetH = Math.max(180, Math.round((rect.height || window.innerHeight || 720) * dpr));
 
         if (canvas.width !== targetW || canvas.height !== targetH) {
           canvas.width = targetW;
@@ -119,23 +119,12 @@ export default function Player({
         try {
           ctx.drawImage(video, drawX, drawY, drawW, drawH);
         } catch (err) {
-          // Capture cross-origin / tainted canvas or transient frame errors
           console.warn("Canvas drawImage notice:", err);
         }
       }
     }
 
-    if (
-      video &&
-      "requestVideoFrameCallback" in video &&
-      typeof (video as CustomVideoElement).requestVideoFrameCallback === "function"
-    ) {
-      rvfcId.current = (video as CustomVideoElement).requestVideoFrameCallback!(() => {
-        renderCanvasFrame();
-      });
-    } else {
-      animFrameId.current = requestAnimationFrame(renderCanvasFrame);
-    }
+    animFrameId.current = requestAnimationFrame(renderCanvasFrame);
   }, [inMotionMode, aspectMode]);
 
   // Start canvas loop when playing
@@ -572,8 +561,13 @@ export default function Player({
             onPlaying={() => {
               setWaiting(false);
               setPlaying(true);
+              renderCanvasFrame();
             }}
-            onCanPlay={() => setWaiting(false)}
+            onCanPlay={() => {
+              setWaiting(false);
+              renderCanvasFrame();
+            }}
+            onSeeked={() => renderCanvasFrame()}
             onLoadedMetadata={() => {
               const v = videoRef.current;
               if (!v) return;
