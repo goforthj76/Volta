@@ -116,3 +116,14 @@ test("hosted client supports native video Range, HEAD and API status", async () 
   );
   assert.equal((await status.json()).youtube.configured, false);
 });
+
+test("youtube stream route rejects invalid or missing videoId", async () => {
+  const { GET } = await import("../app/api/youtube/stream/route");
+  const req1 = new Request("https://example.com/api/youtube/stream");
+  const res1 = await GET(req1 as any);
+  assert.equal(res1.status, 400);
+
+  const req2 = new Request("https://example.com/api/youtube/stream?v=bad");
+  const res2 = await GET(req2 as any);
+  assert.equal(res2.status, 400);
+});

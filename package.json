@@ -14,10 +14,12 @@
     "build:hosted": "node scripts/build-preview.mjs && node scripts/build-hosted.mjs"
   },
   "dependencies": {
+    "@distube/ytdl-core": "^5.2.1",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.0",
     "hls.js": "^1.6.0",
     "lucide-react": "^0.468.0",
+    "mp4box": "^2.5.0",
     "next": "^15.5.10",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

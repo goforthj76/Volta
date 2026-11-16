@@ -18,6 +18,11 @@ import {
   Tv,
 } from "lucide-react";
 import type { Media } from "@/lib/media";
+import {
+  InMotionMP4Player,
+  InMotionTSPlayer,
+  type IInMotionPlayer,
+} from "@/lib/inmotion-engine";
 
 type CustomVideoElement = HTMLVideoElement & {
   requestVideoFrameCallback?: (callback: () => void) => number;
@@ -39,12 +44,16 @@ export default function Player({
   onNext?: () => void;
   onPrevious?: () => void;
 }) {
+  // Parked mode native video ref
   const videoRef = useRef<CustomVideoElement>(null);
+  // In-Motion drive mode canvas and audio refs (ZERO <video> tag in DOM!)
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const inMotionPlayerRef = useRef<IInMotionPlayer | null>(null);
 
-  // Drive Mode (Canvas In-Motion) vs Parked Mode (Native Video)
+  // Drive Mode is active by default (Zero <video> tag, 100% Canvas + Audio)
   const [inMotionMode, setInMotionMode] = useState(true);
   const [aspectMode, setAspectMode] = useState<"contain" | "cover">("contain");
   const [fullscreen, setFullscreen] = useState(false);
@@ -57,93 +66,11 @@ export default function Player({
   const [volume, setVolume] = useState(1);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [waiting, setWaiting] = useState(false);
-  const [useOfficialEmbed, setUseOfficialEmbed] = useState(Boolean(media.youtubeId));
+  const [useOfficialEmbed] = useState(false);
   const [audioModalOpen, setAudioModalOpen] = useState(false);
 
   const lastSave = useRef(0);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const animFrameId = useRef<number | null>(null);
-  const rvfcId = useRef<number | null>(null);
-
-  // Canvas render loop for Tesla in-motion playback
-  const renderCanvasFrame = useCallback(() => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-
-    if (!video || !canvas || !inMotionMode) return;
-
-    if (video.readyState >= 2 && !video.paused && !video.ended) {
-      const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
-      if (ctx) {
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        const rect = canvas.getBoundingClientRect();
-        const targetW = Math.max(320, Math.round((rect.width || window.innerWidth || 1280) * dpr));
-        const targetH = Math.max(180, Math.round((rect.height || window.innerHeight || 720) * dpr));
-
-        if (canvas.width !== targetW || canvas.height !== targetH) {
-          canvas.width = targetW;
-          canvas.height = targetH;
-        }
-
-        const vw = video.videoWidth || 16;
-        const vh = video.videoHeight || 9;
-        const vAspect = vw / vh;
-        const cAspect = targetW / targetH;
-
-        let drawW = targetW;
-        let drawH = targetH;
-        let drawX = 0;
-        let drawY = 0;
-
-        if (aspectMode === "contain") {
-          if (vAspect > cAspect) {
-            drawH = Math.round(targetW / vAspect);
-            drawY = Math.round((targetH - drawH) / 2);
-          } else {
-            drawW = Math.round(targetH * vAspect);
-            drawX = Math.round((targetW - drawW) / 2);
-          }
-          ctx.fillStyle = "#000000";
-          ctx.fillRect(0, 0, targetW, targetH);
-        } else {
-          // Cover mode
-          if (vAspect > cAspect) {
-            drawW = Math.round(targetH * vAspect);
-            drawX = Math.round((targetW - drawW) / 2);
-          } else {
-            drawH = Math.round(targetW / vAspect);
-            drawY = Math.round((targetH - drawH) / 2);
-          }
-        }
-
-        try {
-          ctx.drawImage(video, drawX, drawY, drawW, drawH);
-        } catch (err) {
-          console.warn("Canvas drawImage notice:", err);
-        }
-      }
-    }
-
-    animFrameId.current = requestAnimationFrame(renderCanvasFrame);
-  }, [inMotionMode, aspectMode]);
-
-  // Start canvas loop when playing
-  useEffect(() => {
-    const v = videoRef.current;
-    if (inMotionMode) {
-      renderCanvasFrame();
-    }
-    return () => {
-      if (v && rvfcId.current !== null && "cancelVideoFrameCallback" in v) {
-        (v as CustomVideoElement).cancelVideoFrameCallback!(rvfcId.current);
-        rvfcId.current = null;
-      }
-      if (animFrameId.current !== null) {
-        cancelAnimationFrame(animFrameId.current);
-        animFrameId.current = null;
-      }
-    };
-  }, [inMotionMode, renderCanvasFrame]);
 
   // Controls auto-hide
   const showControls = useCallback(() => {
@@ -158,38 +85,38 @@ export default function Player({
   useEffect(() => {
     const handleDockVolume = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      const v = videoRef.current;
-      if (!v) return;
+      const targetAudio = inMotionMode ? audioRef.current : videoRef.current;
+      if (!targetAudio) return;
       if (typeof detail?.muted === "boolean") {
-        v.muted = detail.muted;
+        targetAudio.muted = detail.muted;
         setMuted(detail.muted);
       }
       if (typeof detail?.volume === "number") {
         const val = Math.max(0, Math.min(1, detail.volume / 100));
-        v.volume = val;
+        targetAudio.volume = val;
         setVolume(val);
-        if (val > 0 && v.muted) {
-          v.muted = false;
+        if (val > 0 && targetAudio.muted) {
+          targetAudio.muted = false;
           setMuted(false);
         }
       }
     };
     window.addEventListener("volta-dock-volume", handleDockVolume);
     return () => window.removeEventListener("volta-dock-volume", handleDockVolume);
-  }, []);
+  }, [inMotionMode]);
 
   const forceUnmute = useCallback(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    v.muted = false;
-    if (v.volume === 0) v.volume = 1;
-    setVolume(v.volume);
+    const targetAudio = inMotionMode ? audioRef.current : videoRef.current;
+    if (!targetAudio) return;
+    targetAudio.muted = false;
+    if (targetAudio.volume === 0) targetAudio.volume = 1;
+    setVolume(targetAudio.volume);
     setMuted(false);
-  }, []);
+  }, [inMotionMode]);
 
   const handleViewportClick = () => {
-    const v = videoRef.current;
-    if (v && (muted || v.muted)) {
+    const targetAudio = inMotionMode ? audioRef.current : videoRef.current;
+    if (targetAudio && (muted || targetAudio.muted)) {
       forceUnmute();
       return;
     }
@@ -203,7 +130,141 @@ export default function Player({
     };
   }, [showControls]);
 
-  async function startPlayback() {
+  // Start In-Motion Playback (Zero <video> tag, 100% Canvas + Audio)
+  const startInMotionEngine = useCallback(async () => {
+    if (!canvasRef.current || !audioRef.current) return;
+    setWaiting(true);
+    setError("");
+
+    inMotionPlayerRef.current?.destroy();
+    inMotionPlayerRef.current = null;
+
+    try {
+      if (media.youtubeId) {
+        // 1. YouTube in Drive: Resolve direct stream via serverless extractor
+        const res = await fetch(`/api/youtube/stream?v=${encodeURIComponent(media.youtubeId)}`);
+        if (!res.ok) {
+          throw new Error("Unable to resolve YouTube direct stream. Retrying...");
+        }
+        const data = await res.json();
+        if (!data.video?.proxyUrl || !data.audio?.proxyUrl) {
+          throw new Error(data.error || "No playable stream returned");
+        }
+
+        const player = new InMotionMP4Player({
+          canvas: canvasRef.current,
+          audio: audioRef.current,
+          videoUrl: data.video.proxyUrl,
+          audioUrl: data.audio.proxyUrl,
+          onReady: () => {
+            setWaiting(false);
+            if (audioRef.current) {
+              audioRef.current
+                .play()
+                .then(() => setPlaying(true))
+                .catch(() => {
+                  if (audioRef.current) {
+                    audioRef.current.muted = true;
+                    setMuted(true);
+                    audioRef.current.play().then(() => setPlaying(true)).catch(() => {});
+                  }
+                });
+            }
+          },
+          onError: (err) => {
+            setWaiting(false);
+            setError(err);
+          },
+          onProgress: (cur, dur) => {
+            setTime(cur);
+            setDuration(dur);
+          },
+        });
+        inMotionPlayerRef.current = player;
+        await player.start();
+      } else if (media.url) {
+        const targetUrl = media.url;
+        const isM3U8 =
+          /\.m3u8(?:\?|$)/i.test(targetUrl) ||
+          media.source === "Live TV" ||
+          targetUrl.includes("/live/");
+
+        if (isM3U8) {
+          // 2. Live TV (HLS MPEG-TS in Drive Mode)
+          const proxiedStreamUrl = targetUrl.startsWith("/api/proxy")
+            ? targetUrl
+            : `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+
+          const player = new InMotionTSPlayer({
+            canvas: canvasRef.current,
+            audio: audioRef.current,
+            videoUrl: proxiedStreamUrl,
+            isLive: true,
+            onReady: () => {
+              setWaiting(false);
+              if (audioRef.current) {
+                audioRef.current
+                  .play()
+                  .then(() => setPlaying(true))
+                  .catch(() => {
+                    if (audioRef.current) {
+                      audioRef.current.muted = true;
+                      setMuted(true);
+                      audioRef.current.play().then(() => setPlaying(true)).catch(() => {});
+                    }
+                  });
+              }
+            },
+            onError: (err) => {
+              setWaiting(false);
+              setError(err);
+            },
+          });
+          inMotionPlayerRef.current = player;
+          await player.start();
+        } else {
+          // 3. Stremio & Direct MP4 in Drive Mode
+          const player = new InMotionMP4Player({
+            canvas: canvasRef.current,
+            audio: audioRef.current,
+            videoUrl: targetUrl,
+            audioUrl: targetUrl,
+            onReady: () => {
+              setWaiting(false);
+              if (audioRef.current) {
+                audioRef.current
+                  .play()
+                  .then(() => setPlaying(true))
+                  .catch(() => {
+                    if (audioRef.current) {
+                      audioRef.current.muted = true;
+                      setMuted(true);
+                      audioRef.current.play().then(() => setPlaying(true)).catch(() => {});
+                    }
+                  });
+              }
+            },
+            onError: (err) => {
+              setWaiting(false);
+              setError(err);
+            },
+            onProgress: (cur, dur) => {
+              setTime(cur);
+              setDuration(dur);
+            },
+          });
+          inMotionPlayerRef.current = player;
+          await player.start();
+        }
+      }
+    } catch (err: unknown) {
+      setWaiting(false);
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [media]);
+
+  // Parked mode playback (traditional native video element)
+  const startParkedPlayback = useCallback(async () => {
     const v = videoRef.current;
     if (!v) return;
     setError("");
@@ -215,8 +276,6 @@ export default function Player({
       setWaiting(false);
       setMuted(false);
     } catch {
-      // 1. Browsers restrict unmuted autoplay without prior user interaction.
-      // Try playing muted automatically:
       try {
         v.muted = true;
         setMuted(true);
@@ -224,75 +283,103 @@ export default function Player({
         setPlaying(true);
         setWaiting(false);
       } catch {
-        // 2. If browser requires explicit tap, show big center play button without error modal
         setWaiting(false);
         setPlaying(false);
       }
     }
-  }
-
-  const togglePlay = useCallback(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (v.paused) {
-      setError("");
-      setWaiting(true);
-      v.volume = volume > 0 ? volume : 1;
-      v.play()
-        .then(() => {
-          v.muted = false;
-          setMuted(false);
-          setPlaying(true);
-          setWaiting(false);
-        })
-        .catch(() => {
-          v.muted = true;
-          setMuted(true);
-          return v.play().then(() => {
-            setPlaying(true);
-            setWaiting(false);
-          });
-        })
-        .catch(() => {
-          setWaiting(false);
-          setError("Playback could not start. Verify stream connectivity.");
-        });
-    } else {
-      v.pause();
-      setPlaying(false);
-    }
   }, [volume]);
 
+  // Master toggle play/pause
+  const togglePlay = useCallback(() => {
+    if (inMotionMode) {
+      const a = audioRef.current;
+      if (!a) return;
+      if (a.paused) {
+        a.play()
+          .then(() => {
+            setPlaying(true);
+            setWaiting(false);
+          })
+          .catch(() => {
+            a.muted = true;
+            setMuted(true);
+            return a.play().then(() => setPlaying(true));
+          });
+      } else {
+        a.pause();
+        setPlaying(false);
+      }
+    } else {
+      const v = videoRef.current;
+      if (!v) return;
+      if (v.paused) {
+        v.play()
+          .then(() => {
+            setPlaying(true);
+            setWaiting(false);
+          })
+          .catch(() => {
+            v.muted = true;
+            setMuted(true);
+            return v.play().then(() => setPlaying(true));
+          });
+      } else {
+        v.pause();
+        setPlaying(false);
+      }
+    }
+  }, [inMotionMode]);
+
   const seek = (seconds: number) => {
-    const v = videoRef.current;
-    if (!v || !Number.isFinite(v.duration)) return;
-    v.currentTime = Math.max(0, Math.min(seconds, v.duration));
-  };
-
-  const skip = useCallback((delta: number) => {
-    const v = videoRef.current;
-    if (!v || !Number.isFinite(v.duration)) return;
-    v.currentTime = Math.max(0, Math.min(v.currentTime + delta, v.duration));
-  }, []);
-
-  const toggleMute = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    v.muted = !v.muted;
-    setMuted(v.muted);
-    if (!v.muted && v.volume === 0) {
-      v.volume = 1;
-      setVolume(1);
+    if (inMotionMode) {
+      const a = audioRef.current;
+      if (a && Number.isFinite(a.duration)) {
+        a.currentTime = Math.max(0, Math.min(seconds, a.duration));
+        inMotionPlayerRef.current?.seek(a.currentTime);
+      }
+    } else {
+      const v = videoRef.current;
+      if (!v || !Number.isFinite(v.duration)) return;
+      v.currentTime = Math.max(0, Math.min(seconds, v.duration));
     }
   };
 
+  const skip = useCallback(
+    (delta: number) => {
+      if (inMotionMode) {
+        const a = audioRef.current;
+        if (a && Number.isFinite(a.duration)) {
+          const target = Math.max(0, Math.min(a.currentTime + delta, a.duration));
+          a.currentTime = target;
+          inMotionPlayerRef.current?.seek(target);
+        }
+      } else {
+        const v = videoRef.current;
+        if (!v || !Number.isFinite(v.duration)) return;
+        v.currentTime = Math.max(0, Math.min(v.currentTime + delta, v.duration));
+      }
+    },
+    [inMotionMode],
+  );
+
+  const toggleMute = useCallback(() => {
+    const targetAudio = inMotionMode ? audioRef.current : videoRef.current;
+    if (!targetAudio) return;
+    targetAudio.muted = !targetAudio.muted;
+    setMuted(targetAudio.muted);
+    if (!targetAudio.muted && targetAudio.volume === 0) {
+      targetAudio.volume = 1;
+      setVolume(1);
+    }
+  }, [inMotionMode]);
+
   const handleVolumeChange = (newVol: number) => {
-    const v = videoRef.current;
-    if (!v) return;
-    v.volume = newVol;
+    const targetAudio = inMotionMode ? audioRef.current : videoRef.current;
+    if (!targetAudio) return;
+    targetAudio.volume = newVol;
     setVolume(newVol);
     if (newVol > 0) {
-      v.muted = false;
+      targetAudio.muted = false;
       setMuted(false);
     }
   };
@@ -308,93 +395,58 @@ export default function Player({
         setFullscreen(false);
       }
     } catch {
-      // Ignore fullscreen rejection
+      // Fullscreen rejection catch
     }
   };
 
-  // Video / HLS source setup
+  // Main lifecycle trigger
   useEffect(() => {
-    const el = videoRef.current;
-    if (!el || (useOfficialEmbed && media.youtubeId)) return;
-
-    if (!media.url) {
-      if (!media.youtubeId) {
-        setError("No direct video stream found for this title.");
-      }
-      return;
-    }
-
-    setError("");
-    setWaiting(true);
-
-    const resume = () => {
-      if (media.progress && Number.isFinite(el.duration)) {
-        el.currentTime = Math.min(media.progress, el.duration - 1);
-      }
-    };
-    el.addEventListener("loadedmetadata", resume);
-
-    const targetUrl = media.url;
-    const isM3U8 =
-      /\.m3u8(?:\?|$)/i.test(targetUrl) ||
-      media.source === "Live TV" ||
-      targetUrl.includes("/live/") ||
-      targetUrl.includes("manifest");
-
-    if (isM3U8 && !el.canPlayType("application/vnd.apple.mpegurl") && Hls.isSupported()) {
-      const engine = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-        backBufferLength: 60,
-      });
-      hlsRef.current = engine;
-
-      let attemptedProxy = false;
-
-      engine.on(Hls.Events.MANIFEST_PARSED, () => {
-        void startPlayback();
-      });
-
-      engine.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal) {
-          if (!attemptedProxy && (targetUrl.startsWith("http://") || targetUrl.startsWith("https://"))) {
-            attemptedProxy = true;
-            console.warn("Retrying HLS through CORS proxy...", data.type);
-            const proxiedUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
-            engine.loadSource(proxiedUrl);
-          } else {
-            setWaiting(false);
-            setError("Stream could not play. Check CORS headers or source connectivity.");
-          }
-        }
-      });
-
-      // Try direct stream first (direct CDN), auto-fallback to CORS proxy on network error
-      engine.loadSource(targetUrl);
-      engine.attachMedia(el);
+    if (inMotionMode) {
+      void startInMotionEngine();
     } else {
-      el.src = targetUrl;
-      let attemptedDirectFallback = false;
-      el.onerror = () => {
-        if (!attemptedDirectFallback && (targetUrl.startsWith("http://") || targetUrl.startsWith("https://"))) {
-          attemptedDirectFallback = true;
-          el.src = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
-          void startPlayback();
-        } else {
-          setWaiting(false);
-          setError("Unable to play this stream. Check provider format or network access.");
+      const el = videoRef.current;
+      if (!el || useOfficialEmbed) return;
+
+      if (!media.url) {
+        if (!media.youtubeId) {
+          setError("No direct video stream found for this title.");
         }
-      };
-      void startPlayback();
+        return;
+      }
+
+      setError("");
+      setWaiting(true);
+
+      const targetUrl = media.url;
+      const isM3U8 =
+        /\.m3u8(?:\?|$)/i.test(targetUrl) ||
+        media.source === "Live TV" ||
+        targetUrl.includes("/live/");
+
+      if (isM3U8 && !el.canPlayType("application/vnd.apple.mpegurl") && Hls.isSupported()) {
+        const engine = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+        });
+        hlsRef.current = engine;
+        engine.on(Hls.Events.MANIFEST_PARSED, () => {
+          void startParkedPlayback();
+        });
+        engine.loadSource(targetUrl);
+        engine.attachMedia(el);
+      } else {
+        el.src = targetUrl;
+        void startParkedPlayback();
+      }
     }
 
     return () => {
-      el.removeEventListener("loadedmetadata", resume);
-      el.onerror = null;
+      inMotionPlayerRef.current?.destroy();
+      inMotionPlayerRef.current = null;
       hlsRef.current?.destroy();
       hlsRef.current = null;
     };
-  }, [media, useOfficialEmbed]);
+  }, [inMotionMode, media, useOfficialEmbed, startInMotionEngine, startParkedPlayback]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -416,7 +468,7 @@ export default function Player({
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = before;
     };
-  }, [onClose, skip, togglePlay]);
+  }, [onClose, skip, togglePlay, toggleMute]);
 
   const format = (s: number) =>
     Number.isFinite(s)
@@ -440,16 +492,15 @@ export default function Player({
         <div className="player-title-box">
           <div className="player-badges">
             <span className="eyebrow">{media.source.toUpperCase()}</span>
-            {inMotionMode && !useOfficialEmbed && (
+            {inMotionMode ? (
               <span className="drive-badge">
                 <Car size={13} />
                 <span>IN-MOTION CANVAS ACTIVE (PASSENGER PLAY)</span>
               </span>
-            )}
-            {useOfficialEmbed && (
+            ) : (
               <span className="embed-badge">
                 <Tv size={13} />
-                <span>OFFICIAL YOUTUBE EMBED</span>
+                <span>PARKED MODE (NATIVE VIDEO)</span>
               </span>
             )}
           </div>
@@ -459,27 +510,14 @@ export default function Player({
 
         <div className="player-top-actions">
           {/* Mode switch for driving bypass */}
-          {!useOfficialEmbed && (
-            <button
-              className={`mode-toggle-btn ${inMotionMode ? "active" : ""}`}
-              onClick={() => setInMotionMode(!inMotionMode)}
-              title="Toggle Canvas Driving Bypass Mode"
-            >
-              <Car size={16} />
-              <span>{inMotionMode ? "Drive Mode (Canvas)" : "Parked Mode (Native)"}</span>
-            </button>
-          )}
-
-          {media.youtubeId && media.url && (
-            <button
-              className="mode-toggle-btn"
-              onClick={() => {
-                setUseOfficialEmbed(!useOfficialEmbed);
-              }}
-            >
-              <span>{useOfficialEmbed ? "Switch to Canvas" : "Switch to Embed"}</span>
-            </button>
-          )}
+          <button
+            className={`mode-toggle-btn ${inMotionMode ? "active" : ""}`}
+            onClick={() => setInMotionMode(!inMotionMode)}
+            title="Toggle Driving In-Motion Canvas Mode"
+          >
+            <Car size={16} />
+            <span>{inMotionMode ? "Drive Mode (Canvas)" : "Parked Mode (Native)"}</span>
+          </button>
 
           {/* Audio Diagnostics & Codec Assistant */}
           <button
@@ -510,104 +548,45 @@ export default function Player({
         </div>
       </div>
 
-      {/* Main Video Viewport */}
-      {useOfficialEmbed && media.youtubeId ? (
-        <div className="youtube-embed-container">
-          <iframe
-            className="video"
-            title={media.title}
-            src={`https://www.youtube.com/embed/${media.youtubeId}?autoplay=1&playsinline=1&enablejsapi=1&origin=${typeof window !== "undefined" ? encodeURIComponent(window.location.origin) : ""}`}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-            allowFullScreen
-            referrerPolicy="strict-origin-when-cross-origin"
-          />
-          <div className="youtube-hint-banner">
-            <div className="youtube-hint-content">
-              <strong>⚠️ Tesla Driving In-Motion Restriction Notice:</strong>
-              <span>
-                Tesla&apos;s browser only plays <strong>audio</strong> for YouTube embeds while in Drive because iframes cannot be routed through HTML5 Canvas.
-                For full in-motion <strong>video + audio</strong> while driving, use <strong>Live TV</strong>, <strong>Stremio</strong>, or <strong>Direct Streams</strong>!
-              </span>
-            </div>
-            <button
-              type="button"
-              className="youtube-switch-livetv-btn"
-              onClick={() => {
-                onClose();
-                window.dispatchEvent(new CustomEvent("volta-navigate", { detail: "Live TV" }));
-              }}
-            >
-              Switch to Live TV (In-Motion)
-            </button>
-          </div>
-        </div>
-      ) : (
+      {/* Main Viewport */}
+      {inMotionMode ? (
+        /* In-Motion Mode: ZERO <video> tag in the DOM! Only Canvas + Audio! */
         <div className="video-viewport" onClick={handleViewportClick}>
-          {/* Canvas for Tesla in-motion playback */}
           <canvas
             ref={canvasRef}
-            className={`player-canvas ${!inMotionMode ? "canvas-hidden" : ""}`}
+            className="player-canvas"
+            width={1280}
+            height={720}
           />
-
-          {/* Off-screen or Native Video element */}
-          <video
-            className={`video ${inMotionMode ? "video-offscreen" : ""}`}
-            ref={videoRef}
-            preload="auto"
-            crossOrigin="anonymous"
-            poster={media.image}
+          {/* Audio element: Tesla NEVER pauses <audio> in Drive! */}
+          <audio
+            ref={audioRef}
             playsInline
+            autoPlay
             onWaiting={() => setWaiting(true)}
             onPlaying={() => {
               setWaiting(false);
               setPlaying(true);
-              renderCanvasFrame();
             }}
-            onCanPlay={() => {
-              setWaiting(false);
-              renderCanvasFrame();
-            }}
-            onSeeked={() => renderCanvasFrame()}
-            onLoadedMetadata={() => {
-              const v = videoRef.current;
-              if (!v) return;
-              setDuration(v.duration);
-              // Audio track selection: if video has multiple audio tracks, prioritize AAC / stereo track
-              const anyVideo = v as unknown as { audioTracks?: Array<{ label?: string; language?: string; enabled: boolean }> };
-              if (anyVideo.audioTracks && anyVideo.audioTracks.length > 1) {
-                for (let i = 0; i < anyVideo.audioTracks.length; i++) {
-                  const t = anyVideo.audioTracks[i];
-                  const label = (t.label || t.language || "").toLowerCase();
-                  if (label.includes("aac") || label.includes("stereo") || label.includes("2.0") || label.includes("mp3")) {
-                    for (let j = 0; j < anyVideo.audioTracks.length; j++) {
-                      anyVideo.audioTracks[j].enabled = (j === i);
-                    }
-                    break;
-                  }
-                }
-              }
-            }}
+            onCanPlay={() => setWaiting(false)}
             onPlay={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
-            onError={() => {
-              setWaiting(false);
-              setError(
-                "Unable to play this stream. Check CORS headers, network access, or provider format.",
-              );
-            }}
             onTimeUpdate={() => {
-              const v = videoRef.current;
-              if (!v) return;
-              setTime(v.currentTime);
-              setDuration(v.duration);
-              if (Math.abs(v.currentTime - lastSave.current) > 5) {
-                lastSave.current = v.currentTime;
-                onProgress(v.currentTime, v.duration);
+              const a = audioRef.current;
+              if (!a) return;
+              setTime(a.currentTime);
+              setDuration(a.duration || 0);
+              if (Math.abs(a.currentTime - lastSave.current) > 5) {
+                lastSave.current = a.currentTime;
+                onProgress(a.currentTime, a.duration || 0);
               }
             }}
             onEnded={() => {
               onProgress(duration, duration);
               setPlaying(false);
+            }}
+            onError={() => {
+              setWaiting(false);
             }}
           />
 
@@ -619,7 +598,7 @@ export default function Player({
           )}
 
           {/* Muted Autoplay Banner Pill */}
-          {playing && muted && !useOfficialEmbed && (
+          {playing && muted && (
             <button
               className="unmute-banner-pill"
               onClick={(e) => {
@@ -640,6 +619,56 @@ export default function Player({
             </div>
           )}
         </div>
+      ) : (
+        /* Parked Mode: Traditional native player / YouTube embed */
+        useOfficialEmbed && media.youtubeId ? (
+          <div className="youtube-embed-container">
+            <iframe
+              className="video"
+              title={media.title}
+              src={`https://www.youtube.com/embed/${media.youtubeId}?autoplay=1&playsinline=1&enablejsapi=1`}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+              allowFullScreen
+            />
+          </div>
+        ) : (
+          <div className="video-viewport" onClick={handleViewportClick}>
+            <video
+              className="video"
+              ref={videoRef}
+              preload="auto"
+              crossOrigin="anonymous"
+              poster={media.image}
+              playsInline
+              onWaiting={() => setWaiting(true)}
+              onPlaying={() => {
+                setWaiting(false);
+                setPlaying(true);
+              }}
+              onCanPlay={() => setWaiting(false)}
+              onPlay={() => setPlaying(true)}
+              onPause={() => setPlaying(false)}
+              onError={() => {
+                setWaiting(false);
+                setError("Unable to play stream in parked mode.");
+              }}
+              onTimeUpdate={() => {
+                const v = videoRef.current;
+                if (!v) return;
+                setTime(v.currentTime);
+                setDuration(v.duration);
+                if (Math.abs(v.currentTime - lastSave.current) > 5) {
+                  lastSave.current = v.currentTime;
+                  onProgress(v.currentTime, v.duration);
+                }
+              }}
+              onEnded={() => {
+                onProgress(duration, duration);
+                setPlaying(false);
+              }}
+            />
+          </div>
+        )
       )}
 
       {/* Error Modal */}
@@ -652,7 +681,8 @@ export default function Player({
               className="primary"
               onClick={() => {
                 setError("");
-                void startPlayback();
+                if (inMotionMode) void startInMotionEngine();
+                else void startParkedPlayback();
               }}
             >
               Try Again
@@ -665,110 +695,108 @@ export default function Player({
       )}
 
       {/* Bottom HUD Controls */}
-      {!useOfficialEmbed && (
-        <div className={`player-bottom ${!controlsVisible ? "hidden-controls" : ""}`}>
-          {/* Progress Timeline Scrubber */}
+      <div className={`player-bottom ${!controlsVisible ? "hidden-controls" : ""}`}>
+        {/* Progress Timeline Scrubber */}
+        {Number.isFinite(duration) && duration > 0 && (
+          <div className="timeline-container">
+            <input
+              type="range"
+              className="timeline-slider"
+              min={0}
+              max={duration || 100}
+              value={time}
+              step={0.5}
+              onChange={(e) => seek(parseFloat(e.target.value))}
+              aria-label="Seek timeline"
+            />
+            <div className="timeline-times">
+              <span>{format(time)}</span>
+              <span>{format(duration)}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Touch Controls Bar */}
+        <div className="player-actions">
+          <button
+            className="action-btn play-pause-btn"
+            onClick={togglePlay}
+            aria-label={playing ? "Pause" : "Play"}
+          >
+            {playing ? <Pause size={24} /> : <Play size={24} fill="currentColor" />}
+          </button>
+
           {Number.isFinite(duration) && duration > 0 && (
-            <div className="timeline-container">
-              <input
-                type="range"
-                className="timeline-slider"
-                min={0}
-                max={duration || 100}
-                value={time}
-                step={0.5}
-                onChange={(e) => seek(parseFloat(e.target.value))}
-                aria-label="Seek timeline"
-              />
-              <div className="timeline-times">
-                <span>{format(time)}</span>
-                <span>{format(duration)}</span>
-              </div>
+            <>
+              <button
+                className="action-btn skip-btn"
+                onClick={() => skip(-10)}
+                aria-label="Skip backward 10s"
+              >
+                <RotateCcw size={20} />
+                <span className="skip-label">10s</span>
+              </button>
+              <button
+                className="action-btn skip-btn"
+                onClick={() => skip(10)}
+                aria-label="Skip forward 10s"
+              >
+                <RotateCw size={20} />
+                <span className="skip-label">10s</span>
+              </button>
+            </>
+          )}
+
+          {/* Live Indicator */}
+          {(!Number.isFinite(duration) || duration === 0) && (
+            <div className="live-pill">
+              <span className="live-dot" />
+              <span>LIVE FEED</span>
             </div>
           )}
 
-          {/* Touch Controls Bar */}
-          <div className="player-actions">
+          <div className="spacer" />
+
+          {/* Aspect Ratio Toggle (Fit vs Fill) */}
+          <button
+            className="action-btn aspect-btn"
+            onClick={() => setAspectMode(aspectMode === "contain" ? "cover" : "contain")}
+            title={`Current: ${aspectMode.toUpperCase()}`}
+          >
+            <span>{aspectMode === "contain" ? "FIT" : "FILL"}</span>
+          </button>
+
+          {/* Volume */}
+          <div className="volume-control">
             <button
-              className="action-btn play-pause-btn"
-              onClick={togglePlay}
-              aria-label={playing ? "Pause" : "Play"}
+              className="action-btn"
+              onClick={toggleMute}
+              aria-label={muted ? "Unmute" : "Mute"}
             >
-              {playing ? <Pause size={24} /> : <Play size={24} fill="currentColor" />}
+              {muted || volume === 0 ? <VolumeX size={22} /> : <Volume2 size={22} />}
             </button>
-
-            {Number.isFinite(duration) && duration > 0 && (
-              <>
-                <button
-                  className="action-btn skip-btn"
-                  onClick={() => skip(-10)}
-                  aria-label="Skip backward 10s"
-                >
-                  <RotateCcw size={20} />
-                  <span className="skip-label">10s</span>
-                </button>
-                <button
-                  className="action-btn skip-btn"
-                  onClick={() => skip(10)}
-                  aria-label="Skip forward 10s"
-                >
-                  <RotateCw size={20} />
-                  <span className="skip-label">10s</span>
-                </button>
-              </>
-            )}
-
-            {/* Live Indicator */}
-            {(!Number.isFinite(duration) || duration === 0) && (
-              <div className="live-pill">
-                <span className="live-dot" />
-                <span>LIVE FEED</span>
-              </div>
-            )}
-
-            <div className="spacer" />
-
-            {/* Aspect Ratio Toggle (Fit vs Fill) */}
-            <button
-              className="action-btn aspect-btn"
-              onClick={() => setAspectMode(aspectMode === "contain" ? "cover" : "contain")}
-              title={`Current: ${aspectMode.toUpperCase()}`}
-            >
-              <span>{aspectMode === "contain" ? "FIT" : "FILL"}</span>
-            </button>
-
-            {/* Volume */}
-            <div className="volume-control">
-              <button
-                className="action-btn"
-                onClick={toggleMute}
-                aria-label={muted ? "Unmute" : "Mute"}
-              >
-                {muted || volume === 0 ? <VolumeX size={22} /> : <Volume2 size={22} />}
-              </button>
-              <input
-                type="range"
-                className="volume-slider"
-                min={0}
-                max={1}
-                step={0.05}
-                value={muted ? 0 : volume}
-                onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                aria-label="Volume"
-              />
-            </div>
-
-            {/* Fullscreen */}
-            <button
-              className="action-btn fullscreen-btn"
-              onClick={() => void toggleFullscreen()}
-              aria-label="Toggle Fullscreen"
-            >
-              {fullscreen ? <Minimize size={22} /> : <Maximize size={22} />}
-            </button>
+            <input
+              type="range"
+              className="volume-slider"
+              min={0}
+              max={1}
+              step={0.05}
+              value={muted ? 0 : volume}
+              onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+              aria-label="Volume"
+            />
           </div>
+
+          {/* Fullscreen */}
+          <button
+            className="action-btn fullscreen-btn"
+            onClick={() => void toggleFullscreen()}
+            aria-label="Toggle Fullscreen"
+          >
+            {fullscreen ? <Minimize size={22} /> : <Maximize size={22} />}
+          </button>
         </div>
-      )}
+      </div>
 
       {/* Audio Diagnostics & Codec Assistant Modal */}
       {audioModalOpen && (
@@ -780,9 +808,13 @@ export default function Player({
               </div>
               <div className="audio-header-text">
                 <h3>Audio Diagnostics & Sound Fix</h3>
-                <p>Troubleshoot silent streams in Chrome & Tesla</p>
+                <p>Tesla Sound, Codecs & In-Motion Status</p>
               </div>
-              <button className="icon-button close-btn" onClick={() => setAudioModalOpen(false)} aria-label="Close dialog">
+              <button
+                className="icon-button close-btn"
+                onClick={() => setAudioModalOpen(false)}
+                aria-label="Close dialog"
+              >
                 <X size={20} />
               </button>
             </div>
@@ -791,23 +823,35 @@ export default function Player({
               <div className="audio-status-row">
                 <span>Sound Output:</span>
                 <strong style={{ color: muted ? "#f87171" : "#4ade80" }}>
-                  {muted ? "MUTED (Browser Autoplay Policy)" : `UNMUTED (${Math.round(volume * 100)}% Volume)`}
+                  {muted
+                    ? "MUTED (Browser Autoplay Policy)"
+                    : `UNMUTED (${Math.round(volume * 100)}% Volume)`}
                 </strong>
               </div>
               <div className="audio-status-row">
                 <span>Playback Mode:</span>
-                <strong>{inMotionMode ? "Passenger Driving Canvas" : "Parked Native Video"}</strong>
+                <strong style={{ color: "#38bdf8" }}>
+                  {inMotionMode
+                    ? "In-Motion Drive Mode (Zero <video> Canvas)"
+                    : "Parked Native Video Mode"}
+                </strong>
               </div>
               <div className="audio-status-row">
                 <span>Stream Source:</span>
-                <strong className="text-truncate">{media.source} · {media.title}</strong>
+                <strong className="text-truncate">
+                  {media.source} · {media.title}
+                </strong>
               </div>
             </div>
 
             <div className="audio-codec-explanation">
-              <h4>Why is Stremio silent in some browsers?</h4>
+              <h4>In-Motion Tesla Driving Bypass Details</h4>
               <p>
-                Chromium browsers (Google Chrome, Edge, and Tesla) <strong>do not include decoders</strong> for proprietary <strong>Dolby AC3, E-AC-3, or DTS 5.1</strong> audio formats due to licensing restrictions. When a stream uses AC3, the browser plays video smoothly but drops the audio.
+                Tesla vehicles pause all <code>&lt;video&gt;</code> HTML tags and YouTube iframes
+                when shifting into Drive. Volta&apos;s In-Motion Drive Mode operates with{" "}
+                <strong>zero &lt;video&gt; tags</strong> in the DOM, streaming video frames through
+                hardware-accelerated WebCodecs Canvas while audio plays uninterrupted via the HTML5
+                audio bus.
               </p>
             </div>
 
@@ -823,35 +867,23 @@ export default function Player({
                 <span>Force Unmute & Set Max Volume (100%)</span>
               </button>
 
-              {media.youtubeId && (
-                <button
-                  className="audio-action-btn accent"
-                  onClick={() => {
-                    setUseOfficialEmbed(true);
-                    setAudioModalOpen(false);
-                  }}
-                >
-                  <Tv size={18} />
-                  <span>Switch to Cinema Preview (Guaranteed Sound)</span>
-                </button>
-              )}
+              <button
+                className="audio-action-btn accent"
+                onClick={() => {
+                  setInMotionMode(!inMotionMode);
+                  setAudioModalOpen(false);
+                }}
+              >
+                <Car size={18} />
+                <span>
+                  Toggle to {inMotionMode ? "Parked Native Video" : "In-Motion Canvas Mode"}
+                </span>
+              </button>
 
-              {media.url && (
-                <button
-                  className="audio-action-btn secondary"
-                  onClick={() => {
-                    if (typeof navigator !== "undefined" && navigator.clipboard) {
-                      void navigator.clipboard.writeText(media.url || "");
-                      alert("Stream URL copied! Open VLC media player or the Stremio Desktop app and press Ctrl+V to stream with full 5.1 surround sound.");
-                    }
-                  }}
-                >
-                  <Play size={18} />
-                  <span>Copy Stream URL for VLC / Stremio App (Dolby 5.1)</span>
-                </button>
-              )}
-
-              <button className="audio-action-btn dismiss" onClick={() => setAudioModalOpen(false)}>
+              <button
+                className="audio-action-btn dismiss"
+                onClick={() => setAudioModalOpen(false)}
+              >
                 Dismiss
               </button>
             </div>
