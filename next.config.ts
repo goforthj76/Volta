@@ -1,8 +1,13 @@
 import type { NextConfig } from "next";
+
 const config: NextConfig = {
   ...(process.env.VOLTA_STATIC === "1" ? { output: "export" as const } : {}),
   images: { unoptimized: true },
   poweredByHeader: false,
+  serverExternalPackages: ["@distube/ytdl-core", "mp4box"],
+  outputFileTracingIncludes: {
+    "/api/**/*": ["./node_modules/@distube/ytdl-core/**/*"],
+  },
   async headers() {
     return [
       {
@@ -20,4 +25,5 @@ const config: NextConfig = {
     ];
   },
 };
+
 export default config;
