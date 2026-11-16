@@ -18,16 +18,6 @@ import {
   Tv,
 } from "lucide-react";
 import type { Media } from "@/lib/media";
-import {
-  InMotionMP4Player,
-  InMotionTSPlayer,
-  type IInMotionPlayer,
-} from "@/lib/inmotion-engine";
-
-type CustomVideoElement = HTMLVideoElement & {
-  requestVideoFrameCallback?: (callback: () => void) => number;
-  cancelVideoFrameCallback?: (handle: number) => void;
-};
 
 export default function Player({
   media,
@@ -44,35 +34,39 @@ export default function Player({
   onNext?: () => void;
   onPrevious?: () => void;
 }) {
-  // Parked mode native video ref
-  const videoRef = useRef<CustomVideoElement>(null);
-  // In-Motion drive mode canvas and audio refs (ZERO <video> tag in DOM!)
+  const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
-  const inMotionPlayerRef = useRef<IInMotionPlayer | null>(null);
+  const rafRef = useRef<number>(0);
 
-  // Drive Mode is active by default (Zero <video> tag, 100% Canvas + Audio)
-  const [inMotionMode, setInMotionMode] = useState(true);
+  // Anti-pause guard ref: tracks when the user intentionally pauses playback.
+  // If Tesla's QtWebEngine/Chromium fires a pause event when the vehicle shifts into Drive,
+  // we catch it and immediately resume playback.
+  const userPausedRef = useRef<boolean>(false);
+
+  // Drive Mode is active by default (Zero visible <video> in viewport, 100% Canvas blit + Audio)
+  const [inMotionMode, setInMotionMode] = useState<boolean>(true);
   const [aspectMode, setAspectMode] = useState<"contain" | "cover">("contain");
-  const [fullscreen, setFullscreen] = useState(false);
+  const [fullscreen, setFullscreen] = useState<boolean>(false);
 
-  const [error, setError] = useState("");
-  const [playing, setPlaying] = useState(false);
-  const [time, setTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [muted, setMuted] = useState(false);
-  const [volume, setVolume] = useState(1);
-  const [controlsVisible, setControlsVisible] = useState(true);
-  const [waiting, setWaiting] = useState(false);
-  const [useOfficialEmbed] = useState(false);
-  const [audioModalOpen, setAudioModalOpen] = useState(false);
+  const [error, setError] = useState<string>("");
+  const [playing, setPlaying] = useState<boolean>(false);
+  const [time, setTime] = useState<number>(0);
+  const [duration, setDuration] = useState<number>(0);
+  const [muted, setMuted] = useState<boolean>(false);
+  const [volume, setVolume] = useState<number>(1);
+  const [controlsVisible, setControlsVisible] = useState<boolean>(true);
+  const [waiting, setWaiting] = useState<boolean>(true);
+  const [audioModalOpen, setAudioModalOpen] = useState<boolean>(false);
 
-  const lastSave = useRef(0);
+  // YouTube separate audio track state
+  const isYouTube = Boolean(media.youtubeId);
+  const lastSave = useRef<number>(0);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Controls auto-hide
+  // Auto-hide controls
   const showControls = useCallback(() => {
     setControlsVisible(true);
     if (hideTimer.current) clearTimeout(hideTimer.current);
@@ -81,11 +75,11 @@ export default function Player({
     }, 3500);
   }, [playing]);
 
-  // Sync audio with Tesla bottom dock
+  // Sync volume with Tesla bottom dock events
   useEffect(() => {
     const handleDockVolume = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      const targetAudio = inMotionMode ? audioRef.current : videoRef.current;
+      const targetAudio = isYouTube ? audioRef.current : videoRef.current;
       if (!targetAudio) return;
       if (typeof detail?.muted === "boolean") {
         targetAudio.muted = detail.muted;
@@ -103,267 +97,91 @@ export default function Player({
     };
     window.addEventListener("volta-dock-volume", handleDockVolume);
     return () => window.removeEventListener("volta-dock-volume", handleDockVolume);
-  }, [inMotionMode]);
+  }, [isYouTube]);
 
   const forceUnmute = useCallback(() => {
-    const targetAudio = inMotionMode ? audioRef.current : videoRef.current;
-    if (!targetAudio) return;
-    targetAudio.muted = false;
-    if (targetAudio.volume === 0) targetAudio.volume = 1;
-    setVolume(targetAudio.volume);
+    const v = videoRef.current;
+    const a = audioRef.current;
+    if (v) {
+      if (!isYouTube) {
+        v.muted = false;
+        if (v.volume === 0) v.volume = 1;
+      }
+    }
+    if (a && isYouTube) {
+      a.muted = false;
+      if (a.volume === 0) a.volume = 1;
+    }
     setMuted(false);
-  }, [inMotionMode]);
+    setVolume(1);
+  }, [isYouTube]);
+
+  // Master Play / Pause
+  const togglePlay = useCallback(() => {
+    const v = videoRef.current;
+    const a = audioRef.current;
+    if (!v) return;
+
+    if (playing) {
+      userPausedRef.current = true;
+      v.pause();
+      if (isYouTube && a) a.pause();
+      setPlaying(false);
+    } else {
+      userPausedRef.current = false;
+      const playPromise = v.play();
+      if (isYouTube && a) void a.play().catch(() => {});
+      playPromise
+        .then(() => {
+          setPlaying(true);
+          setWaiting(false);
+        })
+        .catch(() => {
+          // If unmuted autoplay blocked, retry muted so the video still starts
+          v.muted = true;
+          if (!isYouTube) setMuted(true);
+          void v.play().then(() => setPlaying(true)).catch(() => {});
+        });
+    }
+  }, [playing, isYouTube]);
 
   const handleViewportClick = () => {
-    const targetAudio = inMotionMode ? audioRef.current : videoRef.current;
-    if (targetAudio && (muted || targetAudio.muted)) {
+    if (muted) {
       forceUnmute();
       return;
     }
     togglePlay();
   };
 
+  const onProgressRef = useRef(onProgress);
   useEffect(() => {
-    showControls();
-    return () => {
-      if (hideTimer.current) clearTimeout(hideTimer.current);
-    };
-  }, [showControls]);
+    onProgressRef.current = onProgress;
+  }, [onProgress]);
 
-  // Start In-Motion Playback (Zero <video> tag, 100% Canvas + Audio)
-  const startInMotionEngine = useCallback(async () => {
-    if (!canvasRef.current || !audioRef.current) return;
-    setWaiting(true);
-    setError("");
-
-    inMotionPlayerRef.current?.destroy();
-    inMotionPlayerRef.current = null;
-
-    try {
-      if (media.youtubeId) {
-        // 1. YouTube in Drive: Resolve direct stream via serverless extractor
-        const res = await fetch(`/api/youtube/stream?v=${encodeURIComponent(media.youtubeId)}`);
-        if (!res.ok) {
-          throw new Error("Unable to resolve YouTube direct stream. Retrying...");
-        }
-        const data = await res.json();
-        if (!data.video?.proxyUrl || !data.audio?.proxyUrl) {
-          throw new Error(data.error || "No playable stream returned");
-        }
-
-        const player = new InMotionMP4Player({
-          canvas: canvasRef.current,
-          audio: audioRef.current,
-          videoUrl: data.video.proxyUrl,
-          audioUrl: data.audio.proxyUrl,
-          onReady: () => {
-            setWaiting(false);
-            if (audioRef.current) {
-              audioRef.current
-                .play()
-                .then(() => setPlaying(true))
-                .catch(() => {
-                  if (audioRef.current) {
-                    audioRef.current.muted = true;
-                    setMuted(true);
-                    audioRef.current.play().then(() => setPlaying(true)).catch(() => {});
-                  }
-                });
-            }
-          },
-          onError: (err) => {
-            setWaiting(false);
-            setError(err);
-          },
-          onProgress: (cur, dur) => {
-            setTime(cur);
-            setDuration(dur);
-          },
-        });
-        inMotionPlayerRef.current = player;
-        await player.start();
-      } else if (media.url) {
-        const targetUrl = media.url;
-        const isM3U8 =
-          /\.m3u8(?:\?|$)/i.test(targetUrl) ||
-          media.source === "Live TV" ||
-          targetUrl.includes("/live/");
-
-        if (isM3U8) {
-          // 2. Live TV (HLS MPEG-TS in Drive Mode)
-          const proxiedStreamUrl = targetUrl.startsWith("/api/proxy")
-            ? targetUrl
-            : `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
-
-          const player = new InMotionTSPlayer({
-            canvas: canvasRef.current,
-            audio: audioRef.current,
-            videoUrl: proxiedStreamUrl,
-            isLive: true,
-            onReady: () => {
-              setWaiting(false);
-              if (audioRef.current) {
-                audioRef.current
-                  .play()
-                  .then(() => setPlaying(true))
-                  .catch(() => {
-                    if (audioRef.current) {
-                      audioRef.current.muted = true;
-                      setMuted(true);
-                      audioRef.current.play().then(() => setPlaying(true)).catch(() => {});
-                    }
-                  });
-              }
-            },
-            onError: (err) => {
-              setWaiting(false);
-              setError(err);
-            },
-          });
-          inMotionPlayerRef.current = player;
-          await player.start();
-        } else {
-          // 3. Stremio & Direct MP4 in Drive Mode
-          const player = new InMotionMP4Player({
-            canvas: canvasRef.current,
-            audio: audioRef.current,
-            videoUrl: targetUrl,
-            audioUrl: targetUrl,
-            onReady: () => {
-              setWaiting(false);
-              if (audioRef.current) {
-                audioRef.current
-                  .play()
-                  .then(() => setPlaying(true))
-                  .catch(() => {
-                    if (audioRef.current) {
-                      audioRef.current.muted = true;
-                      setMuted(true);
-                      audioRef.current.play().then(() => setPlaying(true)).catch(() => {});
-                    }
-                  });
-              }
-            },
-            onError: (err) => {
-              setWaiting(false);
-              setError(err);
-            },
-            onProgress: (cur, dur) => {
-              setTime(cur);
-              setDuration(dur);
-            },
-          });
-          inMotionPlayerRef.current = player;
-          await player.start();
-        }
-      }
-    } catch (err: unknown) {
-      setWaiting(false);
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, [media]);
-
-  // Parked mode playback (traditional native video element)
-  const startParkedPlayback = useCallback(async () => {
+  // Seek
+  const seek = useCallback((seconds: number) => {
     const v = videoRef.current;
-    if (!v) return;
-    setError("");
-    setWaiting(true);
-    try {
-      v.volume = volume > 0 ? volume : 1;
-      await v.play();
-      setPlaying(true);
-      setWaiting(false);
-      setMuted(false);
-    } catch {
-      try {
-        v.muted = true;
-        setMuted(true);
-        await v.play();
-        setPlaying(true);
-        setWaiting(false);
-      } catch {
-        setWaiting(false);
-        setPlaying(false);
-      }
+    const a = audioRef.current;
+    if (v && Number.isFinite(seconds)) {
+      v.currentTime = Math.max(0, seconds);
     }
-  }, [volume]);
-
-  // Master toggle play/pause
-  const togglePlay = useCallback(() => {
-    if (inMotionMode) {
-      const a = audioRef.current;
-      if (!a) return;
-      if (a.paused) {
-        a.play()
-          .then(() => {
-            setPlaying(true);
-            setWaiting(false);
-          })
-          .catch(() => {
-            a.muted = true;
-            setMuted(true);
-            return a.play().then(() => setPlaying(true));
-          });
-      } else {
-        a.pause();
-        setPlaying(false);
-      }
-    } else {
-      const v = videoRef.current;
-      if (!v) return;
-      if (v.paused) {
-        v.play()
-          .then(() => {
-            setPlaying(true);
-            setWaiting(false);
-          })
-          .catch(() => {
-            v.muted = true;
-            setMuted(true);
-            return v.play().then(() => setPlaying(true));
-          });
-      } else {
-        v.pause();
-        setPlaying(false);
-      }
+    if (isYouTube && a && Number.isFinite(seconds)) {
+      a.currentTime = Math.max(0, seconds);
     }
-  }, [inMotionMode]);
-
-  const seek = (seconds: number) => {
-    if (inMotionMode) {
-      const a = audioRef.current;
-      if (a && Number.isFinite(a.duration)) {
-        a.currentTime = Math.max(0, Math.min(seconds, a.duration));
-        inMotionPlayerRef.current?.seek(a.currentTime);
-      }
-    } else {
-      const v = videoRef.current;
-      if (!v || !Number.isFinite(v.duration)) return;
-      v.currentTime = Math.max(0, Math.min(seconds, v.duration));
-    }
-  };
+    setTime(seconds);
+  }, [isYouTube]);
 
   const skip = useCallback(
     (delta: number) => {
-      if (inMotionMode) {
-        const a = audioRef.current;
-        if (a && Number.isFinite(a.duration)) {
-          const target = Math.max(0, Math.min(a.currentTime + delta, a.duration));
-          a.currentTime = target;
-          inMotionPlayerRef.current?.seek(target);
-        }
-      } else {
-        const v = videoRef.current;
-        if (!v || !Number.isFinite(v.duration)) return;
-        v.currentTime = Math.max(0, Math.min(v.currentTime + delta, v.duration));
-      }
+      const current = time;
+      const target = Math.max(0, current + delta);
+      seek(target);
     },
-    [inMotionMode],
+    [time, seek],
   );
 
   const toggleMute = useCallback(() => {
-    const targetAudio = inMotionMode ? audioRef.current : videoRef.current;
+    const targetAudio = isYouTube ? audioRef.current : videoRef.current;
     if (!targetAudio) return;
     targetAudio.muted = !targetAudio.muted;
     setMuted(targetAudio.muted);
@@ -371,10 +189,10 @@ export default function Player({
       targetAudio.volume = 1;
       setVolume(1);
     }
-  }, [inMotionMode]);
+  }, [isYouTube]);
 
   const handleVolumeChange = (newVol: number) => {
-    const targetAudio = inMotionMode ? audioRef.current : videoRef.current;
+    const targetAudio = isYouTube ? audioRef.current : videoRef.current;
     if (!targetAudio) return;
     targetAudio.volume = newVol;
     setVolume(newVol);
@@ -395,58 +213,282 @@ export default function Player({
         setFullscreen(false);
       }
     } catch {
-      // Fullscreen rejection catch
+      // Fullscreen not permitted or rejected
     }
   };
 
-  // Main lifecycle trigger
+  // Canvas Blit Loop (Proven Tesla in-motion blit architecture)
   useEffect(() => {
-    if (inMotionMode) {
-      void startInMotionEngine();
-    } else {
-      const el = videoRef.current;
-      if (!el || useOfficialEmbed) return;
-
-      if (!media.url) {
-        if (!media.youtubeId) {
-          setError("No direct video stream found for this title.");
-        }
-        return;
+    if (!inMotionMode) {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
       }
+      return;
+    }
 
-      setError("");
+    const v = videoRef.current;
+    const c = canvasRef.current;
+    if (!v || !c) return;
+
+    const ctx = c.getContext("2d", { alpha: false });
+    if (!ctx) return;
+
+    const blit = () => {
+      if (v.videoWidth > 0 && v.videoHeight > 0) {
+        const w = c.clientWidth;
+        const h = c.clientHeight;
+        if (w > 0 && h > 0) {
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          const pw = Math.round(w * dpr);
+          const ph = Math.round(h * dpr);
+          if (c.width !== pw || c.height !== ph) {
+            c.width = pw;
+            c.height = ph;
+          }
+
+          if (aspectMode === "cover") {
+            const s = Math.max(pw / v.videoWidth, ph / v.videoHeight);
+            const dw = v.videoWidth * s;
+            const dh = v.videoHeight * s;
+            const dx = (pw - dw) / 2;
+            const dy = (ph - dh) / 2;
+            try {
+              ctx.drawImage(v, dx, dy, dw, dh);
+            } catch {
+              // cross-origin draw catch
+            }
+          } else {
+            // Contain-fit, letterboxed on pitch black
+            const s = Math.min(pw / v.videoWidth, ph / v.videoHeight);
+            const dw = v.videoWidth * s;
+            const dh = v.videoHeight * s;
+            const dx = (pw - dw) / 2;
+            const dy = (ph - dh) / 2;
+            ctx.fillStyle = "#000000";
+            ctx.fillRect(0, 0, pw, ph);
+            try {
+              ctx.drawImage(v, dx, dy, dw, dh);
+            } catch {
+              // cross-origin draw catch
+            }
+          }
+        }
+      }
+      rafRef.current = requestAnimationFrame(blit);
+    };
+
+    rafRef.current = requestAnimationFrame(blit);
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+      }
+    };
+  }, [inMotionMode, aspectMode]);
+
+  // Anti-Pause Guardian: Intercepts QtWebEngine/Chromium vehicle pause events
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+
+    const handlePause = () => {
+      // If the pause was not triggered by an explicit user gesture and inMotionMode is active,
+      // it was triggered by Tesla shifting out of Park. Instantly resume playback!
+      if (!userPausedRef.current && inMotionMode) {
+        void v.play().catch(() => {});
+      } else {
+        setPlaying(false);
+      }
+    };
+
+    const handlePlay = () => {
+      setPlaying(true);
+      setWaiting(false);
+    };
+
+    const handleWaiting = () => {
       setWaiting(true);
+    };
 
+    const handlePlaying = () => {
+      setWaiting(false);
+      setPlaying(true);
+    };
+
+    const handleTimeUpdate = () => {
+      if (!isYouTube) {
+        setTime(v.currentTime);
+        setDuration(v.duration || 0);
+        if (Math.abs(v.currentTime - lastSave.current) > 5) {
+          lastSave.current = v.currentTime;
+          onProgressRef.current(v.currentTime, v.duration || 0);
+        }
+      }
+    };
+
+    v.addEventListener("pause", handlePause);
+    v.addEventListener("play", handlePlay);
+    v.addEventListener("waiting", handleWaiting);
+    v.addEventListener("playing", handlePlaying);
+    v.addEventListener("timeupdate", handleTimeUpdate);
+
+    return () => {
+      v.removeEventListener("pause", handlePause);
+      v.removeEventListener("play", handlePlay);
+      v.removeEventListener("waiting", handleWaiting);
+      v.removeEventListener("playing", handlePlaying);
+      v.removeEventListener("timeupdate", handleTimeUpdate);
+    };
+  }, [inMotionMode, isYouTube]);
+
+  // Main Stream Loader: Supports Live TV (HLS), Stremio (MP4/MKV), and YouTube
+  useEffect(() => {
+    const v = videoRef.current;
+    const a = audioRef.current;
+    if (!v) return;
+
+    userPausedRef.current = false;
+    setWaiting(true);
+    setError("");
+
+    // Cleanup previous HLS instance if any
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    let isCancelled = false;
+
+    if (isYouTube && media.youtubeId) {
+      // 1. YouTube Drive Mode Stream Resolution
+      (async () => {
+        try {
+          const res = await fetch(`/api/youtube/stream?v=${encodeURIComponent(media.youtubeId!)}`);
+          if (isCancelled) return;
+          if (!res.ok) {
+            throw new Error("Unable to resolve YouTube direct stream.");
+          }
+          const data = await res.json();
+          if (!data.video?.proxyUrl) {
+            throw new Error(data.error || "No playable stream returned");
+          }
+
+          // Video track goes to offscreen video element for canvas blitting
+          v.src = data.video.proxyUrl;
+          v.muted = true; // Offscreen video element is muted; audio element handles sound
+          void v.play().catch(() => {});
+
+          // Audio track goes to audio element
+          if (a && data.audio?.proxyUrl) {
+            a.src = data.audio.proxyUrl;
+            void a.play().then(() => setPlaying(true)).catch(() => {
+              a.muted = true;
+              setMuted(true);
+              void a.play().then(() => setPlaying(true)).catch(() => {});
+            });
+
+            // Synchronize video time with audio clock
+            const syncAudio = () => {
+              if (Math.abs(v.currentTime - a.currentTime) > 0.15) {
+                v.currentTime = a.currentTime;
+              }
+              setTime(a.currentTime);
+              setDuration(a.duration || data.duration || 0);
+              if (Math.abs(a.currentTime - lastSave.current) > 5) {
+                lastSave.current = a.currentTime;
+                onProgressRef.current(a.currentTime, a.duration || data.duration || 0);
+              }
+            };
+            a.addEventListener("timeupdate", syncAudio);
+          }
+        } catch (err) {
+          if (!isCancelled) {
+            setWaiting(false);
+            setError(err instanceof Error ? err.message : "Failed to load YouTube stream.");
+          }
+        }
+      })();
+    } else if (media.url) {
+      // 2. Live TV & Stremio / Direct Movies
       const targetUrl = media.url;
       const isM3U8 =
         /\.m3u8(?:\?|$)/i.test(targetUrl) ||
         media.source === "Live TV" ||
         targetUrl.includes("/live/");
 
-      if (isM3U8 && !el.canPlayType("application/vnd.apple.mpegurl") && Hls.isSupported()) {
-        const engine = new Hls({
-          enableWorker: true,
-          lowLatencyMode: true,
-        });
-        hlsRef.current = engine;
-        engine.on(Hls.Events.MANIFEST_PARSED, () => {
-          void startParkedPlayback();
-        });
-        engine.loadSource(targetUrl);
-        engine.attachMedia(el);
+      // Ensure stream goes through CORS proxy if external
+      const proxiedStreamUrl =
+        targetUrl.startsWith("/api/proxy") || targetUrl.startsWith("/")
+          ? targetUrl
+          : `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+
+      if (isM3U8) {
+        if (Hls.isSupported()) {
+          const hls = new Hls({
+            maxBufferLength: 30,
+            lowLatencyMode: true,
+          });
+          hlsRef.current = hls;
+          hls.loadSource(proxiedStreamUrl);
+          hls.attachMedia(v);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            if (isCancelled) return;
+            v.play().catch(() => {
+              v.muted = true;
+              setMuted(true);
+              void v.play().catch(() => {});
+            });
+          });
+          hls.on(Hls.Events.ERROR, (_e, data) => {
+            if (data.fatal && !isCancelled) {
+              if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                hls.startLoad();
+              } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                hls.recoverMediaError();
+              } else {
+                setError("Stream playback error. Retrying...");
+              }
+            }
+          });
+        } else if (v.canPlayType("application/vnd.apple.mpegurl")) {
+          v.src = proxiedStreamUrl;
+          void v.play().catch(() => {
+            v.muted = true;
+            setMuted(true);
+            void v.play().catch(() => {});
+          });
+        }
       } else {
-        el.src = targetUrl;
-        void startParkedPlayback();
+        // Direct MP4 / Stremio Movie Stream
+        v.src = proxiedStreamUrl;
+        void v.play().catch(() => {
+          v.muted = true;
+          setMuted(true);
+          void v.play().catch(() => {});
+        });
       }
+    } else {
+      setWaiting(false);
+      setError("No valid stream URL found for this title.");
     }
 
     return () => {
-      inMotionPlayerRef.current?.destroy();
-      inMotionPlayerRef.current = null;
-      hlsRef.current?.destroy();
-      hlsRef.current = null;
+      isCancelled = true;
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+      v.pause();
+      v.removeAttribute("src");
+      v.load();
+      if (a) {
+        a.pause();
+        a.removeAttribute("src");
+        a.load();
+      }
     };
-  }, [inMotionMode, media, useOfficialEmbed, startInMotionEngine, startParkedPlayback]);
+  }, [media, isYouTube]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -549,127 +591,73 @@ export default function Player({
       </div>
 
       {/* Main Viewport */}
-      {inMotionMode ? (
-        /* In-Motion Mode: ZERO <video> tag in the DOM! Only Canvas + Audio! */
-        <div className="video-viewport" onClick={handleViewportClick}>
-          <canvas
-            ref={canvasRef}
-            className="player-canvas"
-            width={1280}
-            height={720}
-          />
-          {/* Audio element: Tesla NEVER pauses <audio> in Drive! */}
-          <audio
-            ref={audioRef}
-            playsInline
-            autoPlay
-            onWaiting={() => setWaiting(true)}
-            onPlaying={() => {
-              setWaiting(false);
-              setPlaying(true);
-            }}
-            onCanPlay={() => setWaiting(false)}
-            onPlay={() => setPlaying(true)}
-            onPause={() => setPlaying(false)}
-            onTimeUpdate={() => {
-              const a = audioRef.current;
-              if (!a) return;
-              setTime(a.currentTime);
-              setDuration(a.duration || 0);
-              if (Math.abs(a.currentTime - lastSave.current) > 5) {
-                lastSave.current = a.currentTime;
-                onProgress(a.currentTime, a.duration || 0);
-              }
-            }}
-            onEnded={() => {
-              onProgress(duration, duration);
-              setPlaying(false);
-            }}
-            onError={() => {
-              setWaiting(false);
-            }}
-          />
+      <div className="video-viewport" onClick={handleViewportClick}>
+        {/* Hardware-accelerated Video Element. In Drive Mode, pushed off-screen with opacity: 1 so Chromium compositor actively renders frames */}
+        <video
+          ref={videoRef}
+          className={inMotionMode ? "video-offscreen" : "video"}
+          playsInline
+          crossOrigin="anonymous"
+          poster={media.image}
+          preload="auto"
+          onEnded={() => {
+            onProgress(duration, duration);
+            setPlaying(false);
+          }}
+          onError={() => {
+            setWaiting(false);
+            setError("Unable to play stream. Tap Try Again or Sound/Codec to adjust.");
+          }}
+        />
 
-          {/* Center Play Indicator on Pause */}
-          {!playing && !error && !waiting && (
-            <div className="center-play-button">
-              <Play size={44} fill="currentColor" />
-            </div>
-          )}
+        {/* Visible Canvas in Drive Mode: Tesla's in-motion video block does NOT apply to Canvas */}
+        <canvas
+          ref={canvasRef}
+          className={`player-canvas ${!inMotionMode ? "canvas-hidden" : ""}`}
+          width={1280}
+          height={720}
+        />
 
-          {/* Muted Autoplay Banner Pill */}
-          {playing && muted && (
-            <button
-              className="unmute-banner-pill"
-              onClick={(e) => {
-                e.stopPropagation();
-                forceUnmute();
-              }}
-            >
-              <VolumeX size={18} />
-              <span>🔇 AUDIO MUTED · TAP ANYWHERE TO UNMUTE 🔊</span>
-            </button>
-          )}
+        {/* Audio Element for YouTube adaptive audio stream */}
+        <audio
+          ref={audioRef}
+          playsInline
+          preload="auto"
+          onEnded={() => {
+            onProgress(duration, duration);
+            setPlaying(false);
+          }}
+        />
 
-          {/* Loading Indicator */}
-          {waiting && !error && (
-            <div className="player-loading">
-              <LoaderCircle className="spin" size={40} />
-              <span>Buffering in-motion stream…</span>
-            </div>
-          )}
-        </div>
-      ) : (
-        /* Parked Mode: Traditional native player / YouTube embed */
-        useOfficialEmbed && media.youtubeId ? (
-          <div className="youtube-embed-container">
-            <iframe
-              className="video"
-              title={media.title}
-              src={`https://www.youtube.com/embed/${media.youtubeId}?autoplay=1&playsinline=1&enablejsapi=1`}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-              allowFullScreen
-            />
+        {/* Center Play Indicator on Pause */}
+        {!playing && !error && !waiting && (
+          <div className="center-play-button">
+            <Play size={44} fill="currentColor" />
           </div>
-        ) : (
-          <div className="video-viewport" onClick={handleViewportClick}>
-            <video
-              className="video"
-              ref={videoRef}
-              preload="auto"
-              crossOrigin="anonymous"
-              poster={media.image}
-              playsInline
-              onWaiting={() => setWaiting(true)}
-              onPlaying={() => {
-                setWaiting(false);
-                setPlaying(true);
-              }}
-              onCanPlay={() => setWaiting(false)}
-              onPlay={() => setPlaying(true)}
-              onPause={() => setPlaying(false)}
-              onError={() => {
-                setWaiting(false);
-                setError("Unable to play stream in parked mode.");
-              }}
-              onTimeUpdate={() => {
-                const v = videoRef.current;
-                if (!v) return;
-                setTime(v.currentTime);
-                setDuration(v.duration);
-                if (Math.abs(v.currentTime - lastSave.current) > 5) {
-                  lastSave.current = v.currentTime;
-                  onProgress(v.currentTime, v.duration);
-                }
-              }}
-              onEnded={() => {
-                onProgress(duration, duration);
-                setPlaying(false);
-              }}
-            />
+        )}
+
+        {/* Muted Autoplay Banner Pill */}
+        {playing && muted && (
+          <button
+            className="unmute-banner-pill"
+            onClick={(e) => {
+              e.stopPropagation();
+              forceUnmute();
+            }}
+          >
+            <VolumeX size={18} />
+            <span>🔇 AUDIO MUTED · TAP ANYWHERE TO UNMUTE 🔊</span>
+          </button>
+        )}
+
+        {/* Loading Spinner */}
+        {waiting && !error && (
+          <div className="player-loading">
+            <LoaderCircle className="spin" size={40} />
+            <span>{inMotionMode ? "Buffering in-motion stream…" : "Buffering stream…"}</span>
           </div>
-        )
-      )}
+        )}
+      </div>
 
       {/* Error Modal */}
       {error && (
@@ -681,8 +669,9 @@ export default function Player({
               className="primary"
               onClick={() => {
                 setError("");
-                if (inMotionMode) void startInMotionEngine();
-                else void startParkedPlayback();
+                setWaiting(true);
+                const v = videoRef.current;
+                if (v) void v.play().catch(() => {});
               }}
             >
               Try Again
@@ -832,7 +821,7 @@ export default function Player({
                 <span>Playback Mode:</span>
                 <strong style={{ color: "#38bdf8" }}>
                   {inMotionMode
-                    ? "In-Motion Drive Mode (Zero <video> Canvas)"
+                    ? "In-Motion Drive Mode (Canvas Active)"
                     : "Parked Native Video Mode"}
                 </strong>
               </div>
@@ -847,11 +836,10 @@ export default function Player({
             <div className="audio-codec-explanation">
               <h4>In-Motion Tesla Driving Bypass Details</h4>
               <p>
-                Tesla vehicles pause all <code>&lt;video&gt;</code> HTML tags and YouTube iframes
-                when shifting into Drive. Volta&apos;s In-Motion Drive Mode operates with{" "}
-                <strong>zero &lt;video&gt; tags</strong> in the DOM, streaming video frames through
-                hardware-accelerated WebCodecs Canvas while audio plays uninterrupted via the HTML5
-                audio bus.
+                Tesla vehicles pause visible <code>&lt;video&gt;</code> HTML tags when shifting
+                into Drive. Volta streams video through an offscreen hardware-accelerated pipeline
+                with an active compositor and blits frames to a visible canvas at display rate.
+                Audio plays natively through the Tesla audio bus.
               </p>
             </div>
 
