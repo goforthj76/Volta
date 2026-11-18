@@ -61,8 +61,8 @@ export default function Player({
   const [waiting, setWaiting] = useState<boolean>(true);
   const [audioModalOpen, setAudioModalOpen] = useState<boolean>(false);
 
-  // YouTube separate audio track state
-  const isYouTube = Boolean(media.youtubeId);
+  // YouTube detection: Only treat as YouTube if explicitly YouTube source or only youtubeId is available
+  const isYouTube = media.source === "YouTube" || (!media.url && Boolean(media.youtubeId));
   const lastSave = useRef<number>(0);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -360,55 +360,12 @@ export default function Player({
 
     let isCancelled = false;
 
-    if (isYouTube && media.youtubeId) {
-      // 1. YouTube Drive Mode Stream Resolution
-      (async () => {
-        try {
-          const res = await fetch(`/api/youtube/stream?v=${encodeURIComponent(media.youtubeId!)}`);
-          if (isCancelled) return;
-          if (!res.ok) {
-            throw new Error("Unable to resolve YouTube direct stream.");
-          }
-          const data = await res.json();
-          if (!data.video?.proxyUrl) {
-            throw new Error(data.error || "No playable stream returned");
-          }
-
-          // Video track goes to offscreen video element for canvas blitting
-          v.src = data.video.proxyUrl;
-          v.muted = true; // Offscreen video element is muted; audio element handles sound
-          void v.play().catch(() => {});
-
-          // Audio track goes to audio element
-          if (a && data.audio?.proxyUrl) {
-            a.src = data.audio.proxyUrl;
-            void a.play().then(() => setPlaying(true)).catch(() => {
-              a.muted = true;
-              setMuted(true);
-              void a.play().then(() => setPlaying(true)).catch(() => {});
-            });
-
-            // Synchronize video time with audio clock
-            const syncAudio = () => {
-              if (Math.abs(v.currentTime - a.currentTime) > 0.15) {
-                v.currentTime = a.currentTime;
-              }
-              setTime(a.currentTime);
-              setDuration(a.duration || data.duration || 0);
-              if (Math.abs(a.currentTime - lastSave.current) > 5) {
-                lastSave.current = a.currentTime;
-                onProgressRef.current(a.currentTime, a.duration || data.duration || 0);
-              }
-            };
-            a.addEventListener("timeupdate", syncAudio);
-          }
-        } catch (err) {
-          if (!isCancelled) {
-            setWaiting(false);
-            setError(err instanceof Error ? err.message : "Failed to load YouTube stream.");
-          }
-        }
-      })();
+    if (isYouTube) {
+      // YouTube uses official iframe embed: zero 403 errors, full 1080p, immediate playback
+      setWaiting(false);
+      setError("");
+      setPlaying(true);
+      return;
     } else if (media.url) {
       // 2. Live TV & Stremio / Direct Movies
       const targetUrl = media.url;
@@ -447,7 +404,7 @@ export default function Player({
               } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
                 hls.recoverMediaError();
               } else {
-                setError("Stream playback error. Retrying...");
+                setError("Stream playback error. Tap Try Again or Sound/Codec to adjust.");
               }
             }
           });
@@ -591,73 +548,92 @@ export default function Player({
       </div>
 
       {/* Main Viewport */}
-      <div className="video-viewport" onClick={handleViewportClick}>
-        {/* Hardware-accelerated Video Element. In Drive Mode, pushed off-screen with opacity: 1 so Chromium compositor actively renders frames */}
-        <video
-          ref={videoRef}
-          className={inMotionMode ? "video-offscreen" : "video"}
-          playsInline
-          crossOrigin="anonymous"
-          poster={media.image}
-          preload="auto"
-          onEnded={() => {
-            onProgress(duration, duration);
-            setPlaying(false);
-          }}
-          onError={() => {
-            setWaiting(false);
-            setError("Unable to play stream. Tap Try Again or Sound/Codec to adjust.");
-          }}
-        />
-
-        {/* Visible Canvas in Drive Mode: Tesla's in-motion video block does NOT apply to Canvas */}
-        <canvas
-          ref={canvasRef}
-          className={`player-canvas ${!inMotionMode ? "canvas-hidden" : ""}`}
-          width={1280}
-          height={720}
-        />
-
-        {/* Audio Element for YouTube adaptive audio stream */}
-        <audio
-          ref={audioRef}
-          playsInline
-          preload="auto"
-          onEnded={() => {
-            onProgress(duration, duration);
-            setPlaying(false);
-          }}
-        />
-
-        {/* Center Play Indicator on Pause */}
-        {!playing && !error && !waiting && (
-          <div className="center-play-button">
-            <Play size={44} fill="currentColor" />
-          </div>
-        )}
-
-        {/* Muted Autoplay Banner Pill */}
-        {playing && muted && (
-          <button
-            className="unmute-banner-pill"
-            onClick={(e) => {
-              e.stopPropagation();
-              forceUnmute();
+      {isYouTube && media.youtubeId ? (
+        <div className="youtube-embed-container">
+          <iframe
+            className="video"
+            title={media.title}
+            src={`https://www.youtube-nocookie.com/embed/${media.youtubeId}?autoplay=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(typeof window !== "undefined" ? window.location.origin : "")}`}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+            allowFullScreen
+          />
+        </div>
+      ) : (
+        <div className="video-viewport" onClick={handleViewportClick}>
+          {/* Hardware-accelerated Video Element. In Drive Mode, pushed off-screen with opacity: 1 so Chromium compositor actively renders frames */}
+          <video
+            ref={videoRef}
+            className={inMotionMode ? "video-offscreen" : "video"}
+            playsInline
+            crossOrigin="anonymous"
+            poster={media.image}
+            preload="auto"
+            onEnded={() => {
+              onProgress(duration, duration);
+              setPlaying(false);
             }}
-          >
-            <VolumeX size={18} />
-            <span>🔇 AUDIO MUTED · TAP ANYWHERE TO UNMUTE 🔊</span>
-          </button>
-        )}
+            onError={() => {
+              const v = videoRef.current;
+              // If the proxied stream failed and we haven't tried direct yet, fallback to raw media.url
+              if (v && media.url && v.src.includes("/api/proxy") && !v.src.endsWith(media.url)) {
+                v.src = media.url;
+                void v.play().catch(() => {});
+                return;
+              }
+              setWaiting(false);
+              setError("Unable to play stream. Tap Try Again or Sound/Codec to adjust.");
+            }}
+          />
 
-        {/* Loading Spinner */}
-        {waiting && !error && (
-          <div className="player-loading">
-            <LoaderCircle className="spin" size={40} />
-            <span>{inMotionMode ? "Buffering in-motion stream…" : "Buffering stream…"}</span>
-          </div>
-        )}
-      </div>
+          {/* Visible Canvas in Drive Mode: Tesla's in-motion video block does NOT apply to Canvas */}
+          <canvas
+            ref={canvasRef}
+            className={`player-canvas ${!inMotionMode ? "canvas-hidden" : ""}`}
+            width={1280}
+            height={720}
+          />
+
+          {/* Audio Element */}
+          <audio
+            ref={audioRef}
+            playsInline
+            preload="auto"
+            onEnded={() => {
+              onProgress(duration, duration);
+              setPlaying(false);
+            }}
+          />
+
+          {/* Center Play Indicator on Pause */}
+          {!playing && !error && !waiting && (
+            <div className="center-play-button">
+              <Play size={44} fill="currentColor" />
+            </div>
+          )}
+
+          {/* Muted Autoplay Banner Pill */}
+          {playing && muted && (
+            <button
+              className="unmute-banner-pill"
+              onClick={(e) => {
+                e.stopPropagation();
+                forceUnmute();
+              }}
+            >
+              <VolumeX size={18} />
+              <span>🔇 AUDIO MUTED · TAP ANYWHERE TO UNMUTE 🔊</span>
+            </button>
+          )}
+
+          {/* Loading Spinner */}
+          {waiting && !error && (
+            <div className="player-loading">
+              <LoaderCircle className="spin" size={40} />
+              <span>{inMotionMode ? "Buffering in-motion stream…" : "Buffering stream…"}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Error Modal */}
       {error && (
@@ -684,108 +660,110 @@ export default function Player({
       )}
 
       {/* Bottom HUD Controls */}
-      <div className={`player-bottom ${!controlsVisible ? "hidden-controls" : ""}`}>
-        {/* Progress Timeline Scrubber */}
-        {Number.isFinite(duration) && duration > 0 && (
-          <div className="timeline-container">
-            <input
-              type="range"
-              className="timeline-slider"
-              min={0}
-              max={duration || 100}
-              value={time}
-              step={0.5}
-              onChange={(e) => seek(parseFloat(e.target.value))}
-              aria-label="Seek timeline"
-            />
-            <div className="timeline-times">
-              <span>{format(time)}</span>
-              <span>{format(duration)}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Touch Controls Bar */}
-        <div className="player-actions">
-          <button
-            className="action-btn play-pause-btn"
-            onClick={togglePlay}
-            aria-label={playing ? "Pause" : "Play"}
-          >
-            {playing ? <Pause size={24} /> : <Play size={24} fill="currentColor" />}
-          </button>
-
+      {!isYouTube && (
+        <div className={`player-bottom ${!controlsVisible ? "hidden-controls" : ""}`}>
+          {/* Progress Timeline Scrubber */}
           {Number.isFinite(duration) && duration > 0 && (
-            <>
-              <button
-                className="action-btn skip-btn"
-                onClick={() => skip(-10)}
-                aria-label="Skip backward 10s"
-              >
-                <RotateCcw size={20} />
-                <span className="skip-label">10s</span>
-              </button>
-              <button
-                className="action-btn skip-btn"
-                onClick={() => skip(10)}
-                aria-label="Skip forward 10s"
-              >
-                <RotateCw size={20} />
-                <span className="skip-label">10s</span>
-              </button>
-            </>
-          )}
-
-          {/* Live Indicator */}
-          {(!Number.isFinite(duration) || duration === 0) && (
-            <div className="live-pill">
-              <span className="live-dot" />
-              <span>LIVE FEED</span>
+            <div className="timeline-container">
+              <input
+                type="range"
+                className="timeline-slider"
+                min={0}
+                max={duration || 100}
+                value={time}
+                step={0.5}
+                onChange={(e) => seek(parseFloat(e.target.value))}
+                aria-label="Seek timeline"
+              />
+              <div className="timeline-times">
+                <span>{format(time)}</span>
+                <span>{format(duration)}</span>
+              </div>
             </div>
           )}
 
-          <div className="spacer" />
-
-          {/* Aspect Ratio Toggle (Fit vs Fill) */}
-          <button
-            className="action-btn aspect-btn"
-            onClick={() => setAspectMode(aspectMode === "contain" ? "cover" : "contain")}
-            title={`Current: ${aspectMode.toUpperCase()}`}
-          >
-            <span>{aspectMode === "contain" ? "FIT" : "FILL"}</span>
-          </button>
-
-          {/* Volume */}
-          <div className="volume-control">
+          {/* Touch Controls Bar */}
+          <div className="player-actions">
             <button
-              className="action-btn"
-              onClick={toggleMute}
-              aria-label={muted ? "Unmute" : "Mute"}
+              className="action-btn play-pause-btn"
+              onClick={togglePlay}
+              aria-label={playing ? "Pause" : "Play"}
             >
-              {muted || volume === 0 ? <VolumeX size={22} /> : <Volume2 size={22} />}
+              {playing ? <Pause size={24} /> : <Play size={24} fill="currentColor" />}
             </button>
-            <input
-              type="range"
-              className="volume-slider"
-              min={0}
-              max={1}
-              step={0.05}
-              value={muted ? 0 : volume}
-              onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-              aria-label="Volume"
-            />
-          </div>
 
-          {/* Fullscreen */}
-          <button
-            className="action-btn fullscreen-btn"
-            onClick={() => void toggleFullscreen()}
-            aria-label="Toggle Fullscreen"
-          >
-            {fullscreen ? <Minimize size={22} /> : <Maximize size={22} />}
-          </button>
+            {Number.isFinite(duration) && duration > 0 && (
+              <>
+                <button
+                  className="action-btn skip-btn"
+                  onClick={() => skip(-10)}
+                  aria-label="Skip backward 10s"
+                >
+                  <RotateCcw size={20} />
+                  <span className="skip-label">10s</span>
+                </button>
+                <button
+                  className="action-btn skip-btn"
+                  onClick={() => skip(10)}
+                  aria-label="Skip forward 10s"
+                >
+                  <RotateCw size={20} />
+                  <span className="skip-label">10s</span>
+                </button>
+              </>
+            )}
+
+            {/* Live Indicator */}
+            {(!Number.isFinite(duration) || duration === 0) && (
+              <div className="live-pill">
+                <span className="live-dot" />
+                <span>LIVE FEED</span>
+              </div>
+            )}
+
+            <div className="spacer" />
+
+            {/* Aspect Ratio Toggle (Fit vs Fill) */}
+            <button
+              className="action-btn aspect-btn"
+              onClick={() => setAspectMode(aspectMode === "contain" ? "cover" : "contain")}
+              title={`Current: ${aspectMode.toUpperCase()}`}
+            >
+              <span>{aspectMode === "contain" ? "FIT" : "FILL"}</span>
+            </button>
+
+            {/* Volume */}
+            <div className="volume-control">
+              <button
+                className="action-btn"
+                onClick={toggleMute}
+                aria-label={muted ? "Unmute" : "Mute"}
+              >
+                {muted || volume === 0 ? <VolumeX size={22} /> : <Volume2 size={22} />}
+              </button>
+              <input
+                type="range"
+                className="volume-slider"
+                min={0}
+                max={1}
+                step={0.05}
+                value={muted ? 0 : volume}
+                onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                aria-label="Volume"
+              />
+            </div>
+
+            {/* Fullscreen */}
+            <button
+              className="action-btn fullscreen-btn"
+              onClick={() => void toggleFullscreen()}
+              aria-label="Toggle Fullscreen"
+            >
+              {fullscreen ? <Minimize size={22} /> : <Maximize size={22} />}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Audio Diagnostics & Codec Assistant Modal */}
       {audioModalOpen && (

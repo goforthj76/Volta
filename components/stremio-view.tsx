@@ -402,7 +402,7 @@ export default function StremioView({
       source: "Stremio",
       image: selectedMeta.background || selectedMeta.poster || "/art/space.jpg",
       url: streamUrl,
-      youtubeId: trailerYt,
+      youtubeId: stream.ytId || (!streamUrl ? trailerYt : undefined),
     };
 
     setSelectedMeta(null);
